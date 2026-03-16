@@ -108,7 +108,7 @@ class TestBuildFeatureRow:
 
     def test_correct_tourney_and_match_ids(self, db_conn):
         """build_feature_row sets tourney_id, match_num, tour, player_role correctly."""
-        _insert_tournament(db_conn)
+        _insert_tournament(db_conn, tourney_id="T002")
         _insert_match(db_conn, tourney_id="T002", match_num=5)
         match = _make_match_dict(tourney_id="T002", match_num=5)
 
