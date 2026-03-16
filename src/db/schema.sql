@@ -112,22 +112,105 @@ CREATE TABLE IF NOT EXISTS ingestion_log (
 );
 
 -- ---------------------------------------------------------------------------
--- Player Elo: Phase 2 stub — populated by feature engineering phase
+-- Player Elo: Glicko-2 ratings per player per surface per week
+-- Populated by Phase 2 feature engineering (src/ratings/glicko.py)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS player_elo (
+    player_id        INTEGER NOT NULL,
+    tour             TEXT    NOT NULL DEFAULT 'ATP',
+    surface          TEXT    NOT NULL,   -- 'Hard', 'Clay', 'Grass', 'Overall'
+    as_of_date       TEXT    NOT NULL,   -- ISO "YYYY-MM-DD" end of ISO week
+    elo_rating       REAL    NOT NULL DEFAULT 1500.0,
+    rd               REAL    NOT NULL DEFAULT 350.0,    -- Glicko-2 rating deviation
+    volatility       REAL    NOT NULL DEFAULT 0.06,     -- Glicko-2 volatility
+    matches_played   INTEGER NOT NULL DEFAULT 0,
+    last_played_date TEXT,               -- ISO "YYYY-MM-DD" most recent match on this surface
+    PRIMARY KEY (player_id, tour, surface, as_of_date)
+);
+
+-- ---------------------------------------------------------------------------
+-- Match Features: wide format feature row per player per match
+-- One row per (player_role: 'winner'/'loser') per match
+-- Populated in Phase 2 after Glicko-2 ratings are computed
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS match_features (
+    tourney_id              TEXT    NOT NULL,
+    match_num               INTEGER NOT NULL,
+    tour                    TEXT    NOT NULL DEFAULT 'ATP',
+    player_role             TEXT    NOT NULL,  -- 'winner' or 'loser'
+    -- Glicko-2 surface-specific ratings at match time (pre-match snapshot)
+    elo_hard                REAL,
+    elo_hard_rd             REAL,
+    elo_clay                REAL,
+    elo_clay_rd             REAL,
+    elo_grass               REAL,
+    elo_grass_rd            REAL,
+    elo_overall             REAL,
+    elo_overall_rd          REAL,
+    -- Head-to-head history
+    h2h_wins                INTEGER,
+    h2h_losses              INTEGER,
+    h2h_surface_wins        INTEGER,
+    h2h_surface_losses      INTEGER,
+    -- Rolling form (last N matches)
+    form_win_rate_10        REAL,
+    form_win_rate_20        REAL,
+    -- Service stat averages (rolling)
+    avg_ace_rate            REAL,
+    avg_df_rate             REAL,
+    avg_first_pct           REAL,
+    avg_first_won_pct       REAL,
+    -- Ranking features
+    ranking                 INTEGER,
+    ranking_delta           INTEGER,  -- change from previous week
+    -- Fatigue features
+    days_since_last         INTEGER,
+    sets_last_7_days        INTEGER,
+    -- Match context
+    tourney_level           TEXT,
+    surface                 TEXT,
+    -- Sentiment
+    sentiment_score         REAL,
+    PRIMARY KEY (tourney_id, match_num, tour, player_role),
+    FOREIGN KEY (tourney_id, match_num, tour) REFERENCES matches(tourney_id, match_num, tour)
+);
+
+-- ---------------------------------------------------------------------------
+-- Articles: tennis press conference transcripts and news articles
+-- Source: ASAPSports, RSS feeds, Cornell tennis interview dataset
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS articles (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
     player_id      INTEGER NOT NULL,
     tour           TEXT    NOT NULL DEFAULT 'ATP',
-    surface        TEXT    NOT NULL,
-    as_of_date     TEXT    NOT NULL,  -- ISO "YYYY-MM-DD"
-    elo_rating     REAL    NOT NULL DEFAULT 1500.0,
-    matches_played INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (player_id, tour, surface, as_of_date)
+    source         TEXT,           -- 'asapsports', 'rss', 'cornell', etc.
+    url            TEXT    UNIQUE, -- deduplicate by URL
+    title          TEXT,
+    content        TEXT,
+    published_date TEXT,           -- ISO "YYYY-MM-DD"
+    fetched_at     TEXT            -- ISO "YYYY-MM-DDTHH:MM:SSZ"
+);
+
+-- ---------------------------------------------------------------------------
+-- Article Sentiment: scored sentiment output per article
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS article_sentiment (
+    article_id      INTEGER NOT NULL,
+    player_id       INTEGER NOT NULL,
+    tour            TEXT    NOT NULL DEFAULT 'ATP',
+    sentiment_score REAL,          -- [-1.0, 1.0] normalized score
+    keywords_found  TEXT,          -- JSON array of matched tennis keywords
+    scored_at       TEXT,          -- ISO "YYYY-MM-DDTHH:MM:SSZ"
+    PRIMARY KEY (article_id),
+    FOREIGN KEY (article_id) REFERENCES articles(id)
 );
 
 -- ---------------------------------------------------------------------------
 -- Indexes: optimized for temporal query patterns used in Phase 2 feature engineering
 -- ---------------------------------------------------------------------------
-CREATE INDEX IF NOT EXISTS idx_matches_date   ON matches(tourney_date, tour);
-CREATE INDEX IF NOT EXISTS idx_matches_winner ON matches(winner_id, tourney_date, tour);
-CREATE INDEX IF NOT EXISTS idx_matches_loser  ON matches(loser_id, tourney_date, tour);
-CREATE INDEX IF NOT EXISTS idx_rankings_player ON rankings(player_id, ranking_date, tour);
+CREATE INDEX IF NOT EXISTS idx_matches_date        ON matches(tourney_date, tour);
+CREATE INDEX IF NOT EXISTS idx_matches_winner      ON matches(winner_id, tourney_date, tour);
+CREATE INDEX IF NOT EXISTS idx_matches_loser       ON matches(loser_id, tourney_date, tour);
+CREATE INDEX IF NOT EXISTS idx_rankings_player     ON rankings(player_id, ranking_date, tour);
+CREATE INDEX IF NOT EXISTS idx_articles_player     ON articles(player_id, published_date, tour);
+CREATE INDEX IF NOT EXISTS idx_match_features_pk   ON match_features(tourney_id, match_num, tour, player_role);

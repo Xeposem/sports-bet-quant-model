@@ -19,7 +19,7 @@ import pandas as pd
 
 
 def test_schema_creates_all_tables(db_conn):
-    """Verify 7 tables exist after schema creation."""
+    """Verify all tables exist after schema creation."""
     cursor = db_conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
     )
@@ -28,6 +28,7 @@ def test_schema_creates_all_tables(db_conn):
         row[0] for row in cursor.fetchall()
         if not row[0].startswith("sqlite_")
     }
+    # Phase 1 tables + Phase 2 tables added in 02-01 schema migration
     expected = {
         "players",
         "tournaments",
@@ -36,6 +37,9 @@ def test_schema_creates_all_tables(db_conn):
         "rankings",
         "ingestion_log",
         "player_elo",
+        "match_features",
+        "articles",
+        "article_sentiment",
     }
     assert expected == tables, f"Expected {expected}, got {tables}"
 
@@ -122,7 +126,8 @@ def test_db_conn_fixture_has_schema(db_conn):
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
     )
     table_count = cursor.fetchone()[0]
-    assert table_count == 7, f"Expected 7 tables, got {table_count}"
+    # Phase 1: 7 tables; Phase 2 adds match_features, articles, article_sentiment
+    assert table_count == 10, f"Expected 10 tables, got {table_count}"
 
 
 def test_sample_match_df_has_five_rows(sample_match_df):
