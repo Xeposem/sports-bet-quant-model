@@ -48,7 +48,7 @@ Plans:
   3. Feature matrix includes H2H record, rolling win rate, service stats, days since last match, sets played in last 7 days, ranking, ranking delta, and tournament level for both players
   4. User can trigger article fetching for sentiment analysis from the dashboard and see updated sentiment scores for targeted players
   5. Removing any single match from the dataset does not change feature values for matches played before it — look-ahead bias unit test passes
-**Plans:** 1/4 plans executed
+**Plans:** 3/4 plans executed
 Plans:
 - [ ] 02-01-PLAN.md — Schema migration + Glicko-2 rating engine with surface-specific tracks, seeding, and decay
 - [ ] 02-02-PLAN.md — Feature computation modules (H2H, form, ranking, fatigue, tournament level)
@@ -144,7 +144,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Data Ingestion & Storage | 3/3 | Complete   | 2026-03-16 |
-| 2. Elo Ratings & Feature Engineering | 1/4 | In Progress|  |
+| 2. Elo Ratings & Feature Engineering | 3/4 | In Progress|  |
 | 3. Baseline Model & EV Framework | 0/TBD | Not started | - |
 | 4. Backtesting Engine | 0/TBD | Not started | - |
 | 5. FastAPI Backend | 0/TBD | Not started | - |

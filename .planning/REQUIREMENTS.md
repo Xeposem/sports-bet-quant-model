@@ -17,9 +17,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Elo Ratings
 
-- [ ] **ELO-01**: System computes surface-specific Elo ratings (hard, clay, grass) for all ATP players
-- [ ] **ELO-02**: System applies Elo decay for player inactivity periods
-- [ ] **ELO-03**: System tracks Elo rating history over time per player per surface
+- [x] **ELO-01**: System computes surface-specific Elo ratings (hard, clay, grass) for all ATP players
+- [x] **ELO-02**: System applies Elo decay for player inactivity periods
+- [x] **ELO-03**: System tracks Elo rating history over time per player per surface
 
 ### Feature Engineering
 
@@ -123,9 +123,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DATA-03 | Phase 1 | Complete |
 | DATA-04 | Phase 1 | Complete |
 | DATA-05 | Phase 1 | Complete |
-| ELO-01 | Phase 2 | Pending |
-| ELO-02 | Phase 2 | Pending |
-| ELO-03 | Phase 2 | Pending |
+| ELO-01 | Phase 2 | Complete |
+| ELO-02 | Phase 2 | Complete |
+| ELO-03 | Phase 2 | Complete |
 | FEAT-01 | Phase 2 | Complete |
 | FEAT-02 | Phase 2 | Complete |
 | FEAT-03 | Phase 2 | Complete |
