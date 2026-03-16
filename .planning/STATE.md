@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 02-elo-ratings-feature-engineering/02-02-PLAN.md
-last_updated: "2026-03-16T18:37:44.428Z"
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-03-16T18:38:42.294Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 7
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -55,6 +55,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-data-ingestion-storage P03 | 4 | 2 tasks | 4 files |
 | Phase 01-data-ingestion-storage P03 | 10 | 3 tasks | 4 files |
 | Phase 02-elo-ratings-feature-engineering P02 | 4 | 2 tasks | 7 files |
+| Phase 02-elo-ratings-feature-engineering P03 | 4 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,9 @@ Recent decisions affecting current work:
 - [Phase 02-elo-ratings-feature-engineering]: Ranking uses ranking_date <= before_date (not strict less-than) — ATP weekly rankings published before match day
 - [Phase 02-elo-ratings-feature-engineering]: Service stats aggregate totals across window (sum ace / sum svpt) rather than per-match averages — avoids small-sample distortion
 - [Phase 02-elo-ratings-feature-engineering]: compute_rolling_form accepts windows list to return multiple window sizes in one DB round-trip
+- [Phase 02-elo-ratings-feature-engineering]: Lazy ML pipeline loading: _sentiment_pipe=None at module level, initialized in _get_pipeline() to avoid 268MB DistilBERT download at import time
+- [Phase 02-elo-ratings-feature-engineering]: All sentiment tests mock _get_pipeline() return value — zero model downloads, suite runs in under 1s
+- [Phase 02-elo-ratings-feature-engineering]: Python 3.9 compatible Optional[List[...]] type hints in fetcher.py — list|None PEP 604 syntax fails on actual runtime Python 3.9
 
 ### Pending Todos
 
@@ -94,6 +98,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T18:37:44.424Z
-Stopped at: Completed 02-elo-ratings-feature-engineering/02-02-PLAN.md
+Last session: 2026-03-16T18:38:42.291Z
+Stopped at: Completed 02-03-PLAN.md
 Resume file: None
