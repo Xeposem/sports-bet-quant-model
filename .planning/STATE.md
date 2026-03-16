@@ -1,0 +1,99 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: planning
+stopped_at: Completed 02-elo-ratings-feature-engineering/02-02-PLAN.md
+last_updated: "2026-03-16T18:37:44.428Z"
+last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
+progress:
+  total_phases: 9
+  completed_phases: 1
+  total_plans: 7
+  completed_plans: 4
+  percent: 0
+---
+
+# Project State
+
+## Project Reference
+
+See: .planning/PROJECT.md (updated 2026-03-15)
+
+**Core value:** Accurate, data-driven predictions that identify positive expected value betting opportunities in tennis — measured by demonstrable edge over bookmaker lines in backtesting
+**Current focus:** Phase 1 — Data Ingestion & Storage
+
+## Current Position
+
+Phase: 1 of 9 (Data Ingestion & Storage)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
+
+Progress: [░░░░░░░░░░] 0%
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 0
+- Average duration: -
+- Total execution time: 0 hours
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
+
+**Recent Trend:**
+- Last 5 plans: none yet
+- Trend: -
+
+*Updated after each plan completion*
+| Phase 01-data-ingestion-storage P01 | 5 | 2 tasks | 11 files |
+| Phase 01-data-ingestion-storage P02 | 8 | 2 tasks | 6 files |
+| Phase 01-data-ingestion-storage P03 | 4 | 2 tasks | 4 files |
+| Phase 01-data-ingestion-storage P03 | 10 | 3 tasks | 4 files |
+| Phase 02-elo-ratings-feature-engineering P02 | 4 | 2 tasks | 7 files |
+
+## Accumulated Context
+
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- [Pre-work]: Manual PrizePicks line entry only — TOS prohibits scraping
+- [Pre-work]: Free data sources (Sackmann) only — no paid APIs for v1
+- [Pre-work]: Python 3.12 required — PyMC v5 does not support Python 3.13
+- [Pre-work]: Build order enforced: data → features → baseline → backtest → API → frontend → advanced models → props → paper trading
+- [Phase 01-data-ingestion-storage]: Python 3.9 compatible sqlite3.connect() — autocommit kwarg requires 3.12; omitted for backwards compatibility
+- [Phase 01-data-ingestion-storage]: WAL journal_mode verified via file-based DB in tests — in-memory SQLite always reports 'memory' mode
+- [Phase 01-data-ingestion-storage]: MATCH_DTYPES has 49 keys — plan referenced 44 but RESEARCH.md Pattern 1 defines 49 actual Sackmann columns
+- [Phase 01-data-ingestion-storage]: Per-column stat updates for retirement rows avoid FutureWarning in pandas 2.x on dtype-incompatible bulk assignment
+- [Phase 01-data-ingestion-storage]: ON CONFLICT DO NOTHING tracked via changes() per-row to enable accurate inserted/skipped counts
+- [Phase 01-data-ingestion-storage]: check_duplicates test uses no-PK schema — SQLite PRIMARY KEY always enforced; test validates SQL detection logic only
+- [Phase 01-data-ingestion-storage]: overall_valid excludes retirement_ratio.in_range — 3-5% range is a soft warning; hard failures are duplicates, date format, and temporal safety only
+- [Phase 01-data-ingestion-storage]: check_duplicates test uses no-PK schema — SQLite PRIMARY KEY always enforced; test validates SQL detection logic only
+- [Phase 01-data-ingestion-storage]: overall_valid excludes retirement_ratio.in_range — 3-5% range is a soft warning; hard failures are duplicates, date format, and temporal safety only
+- [Phase 01-data-ingestion-storage]: validate-only mode calls init_db before validation to ensure schema exists on fresh databases
+- [Phase 02-elo-ratings-feature-engineering]: Ranking uses ranking_date <= before_date (not strict less-than) — ATP weekly rankings published before match day
+- [Phase 02-elo-ratings-feature-engineering]: Service stats aggregate totals across window (sum ace / sum svpt) rather than per-match averages — avoids small-sample distortion
+- [Phase 02-elo-ratings-feature-engineering]: compute_rolling_form accepts windows list to return multiple window sizes in one DB round-trip
+
+### Pending Todos
+
+None yet.
+
+### Blockers/Concerns
+
+- [Research]: Sackmann CSV schema changes across years (pre/post 2011 column availability) — needs validation during Phase 1 planning
+- [Research]: Historical bookmaker odds source for EV backtesting not yet identified — gap must be resolved before Phase 3
+- [Research]: PyMC hierarchical model for tennis prop stat distributions is niche — Phase 8 planning should include a research step
+- [Research]: Glicko-2 vs standard Elo decision deferred to Phase 2 planning
+
+## Session Continuity
+
+Last session: 2026-03-16T18:37:44.424Z
+Stopped at: Completed 02-elo-ratings-feature-engineering/02-02-PLAN.md
+Resume file: None
