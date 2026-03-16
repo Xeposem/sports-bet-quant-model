@@ -29,8 +29,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **FEAT-04**: System computes fatigue/scheduling features (days since last match, sets played in last 7 days)
 - [x] **FEAT-05**: System performs sentiment analysis on recent articles to assess player fatigue, form, and injury status
 - [x] **FEAT-06**: System computes tournament-level features (Grand Slam, Masters 1000, ATP 500, ATP 250)
-- [ ] **FEAT-07**: User can manually trigger data refresh via dashboard (match data, bookmaker odds, articles for sentiment)
-- [ ] **FEAT-08**: System supports optional scheduled data fetching on a configurable interval (match data, odds, articles)
+- [x] **FEAT-07**: User can manually trigger data refresh via dashboard (match data, bookmaker odds, articles for sentiment)
+- [x] **FEAT-08**: System supports optional scheduled data fetching on a configurable interval (match data, odds, articles)
 
 ### Match Outcome Models
 
@@ -132,8 +132,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FEAT-04 | Phase 2 | Complete |
 | FEAT-05 | Phase 2 | Complete |
 | FEAT-06 | Phase 2 | Complete |
-| FEAT-07 | Phase 2 | Pending |
-| FEAT-08 | Phase 2 | Pending |
+| FEAT-07 | Phase 2 | Complete |
+| FEAT-08 | Phase 2 | Complete |
 | MOD-01 | Phase 3 | Pending |
 | MOD-05 | Phase 3 | Pending |
 | ODDS-01 | Phase 3 | Pending |

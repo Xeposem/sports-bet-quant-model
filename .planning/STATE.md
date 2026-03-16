@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 02-elo-ratings-feature-engineering/02-01-PLAN.md
-last_updated: "2026-03-16T18:41:14.323Z"
+stopped_at: Completed 02-elo-ratings-feature-engineering/02-04-PLAN.md
+last_updated: "2026-03-16T18:52:17.399Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
   percent: 0
 ---
 
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02-elo-ratings-feature-engineering P02 | 4 | 2 tasks | 7 files |
 | Phase 02-elo-ratings-feature-engineering P03 | 4 | 2 tasks | 7 files |
 | Phase 02-elo-ratings-feature-engineering P01 | 472 | 2 tasks | 9 files |
+| Phase 02-elo-ratings-feature-engineering P04 | 424 | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,9 @@ Recent decisions affecting current work:
 - [Phase 02-elo-ratings-feature-engineering]: Python 3.9 compatible Optional[List[...]] type hints in fetcher.py — list|None PEP 604 syntax fails on actual runtime Python 3.9
 - [Phase 02-elo-ratings-feature-engineering]: Piecewise logarithmic seeder with rank 100 as anchor at 1500 for accurate three-point calibration
 - [Phase 02-elo-ratings-feature-engineering]: Tournament weighting via fractional outcome (effective_outcome = base * tw + 0.5 * (1-tw)) since glicko2 library does not support K-factor scaling
+- [Phase 02-elo-ratings-feature-engineering]: INSERT OR REPLACE for match_features idempotency — simpler syntax, same semantics as ON CONFLICT DO UPDATE
+- [Phase 02-elo-ratings-feature-engineering]: build_scheduler returns NOT-started scheduler — caller controls lifecycle for FastAPI lifespan pattern
+- [Phase 02-elo-ratings-feature-engineering]: refresh_all uses module-level imports to allow patching at module scope in tests
 
 ### Pending Todos
 
@@ -101,6 +105,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T18:41:14.319Z
-Stopped at: Completed 02-elo-ratings-feature-engineering/02-01-PLAN.md
+Last session: 2026-03-16T18:52:17.395Z
+Stopped at: Completed 02-elo-ratings-feature-engineering/02-04-PLAN.md
 Resume file: None
