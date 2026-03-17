@@ -1,9 +1,15 @@
 """
-Tests for odds module: power method devigging, CSV ingestion, fuzzy linking, manual entry.
-Phase 03-01: Odds ingestion pipeline.
+Tests for odds module: power method devigging, CSV ingestion, fuzzy linking, manual entry,
+and CLI commands (enter, import-csv, train, predict).
+Phase 03-01/03-03: Odds ingestion pipeline + CLI.
 """
+import json
 import math
+import os
 import sqlite3
+import sys
+import tempfile
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -349,3 +355,231 @@ class TestManualEntry:
             ("2023-001", 1)
         ).fetchone()
         assert row["bookmaker"] == "pinnacle"
+
+
+# ---------------------------------------------------------------------------
+# Task 3 tests: CLI (src/odds/cli.py)
+# ---------------------------------------------------------------------------
+
+def _run_cli(args: list) -> int:
+    """
+    Helper to run the CLI main() with given sys.argv args.
+    Returns 0 on success or catches SystemExit and returns its code.
+    """
+    from src.odds.cli import main
+
+    with patch("sys.argv", ["cli"] + args):
+        try:
+            main()
+            return 0
+        except SystemExit as e:
+            return int(e.code) if e.code is not None else 0
+
+
+class TestCLIEnterCommand:
+    """Tests for `cli enter` subcommand."""
+
+    def test_enter_calls_manual_entry(self, tmp_path):
+        """CLI `enter` calls manual_entry with provided args."""
+        db_path = str(tmp_path / "test.db")
+
+        with patch("src.odds.cli.manual_entry") as mock_entry, \
+             patch("src.odds.cli.get_db_path", return_value=db_path), \
+             patch("src.odds.cli.sqlite3") as mock_sqlite:
+
+            mock_conn = MagicMock()
+            mock_sqlite.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_sqlite.connect.return_value.__exit__ = MagicMock(return_value=False)
+
+            with patch("sys.argv", [
+                "cli", "enter",
+                "--tourney-id", "2023-001",
+                "--match-num", "1",
+                "--odds-a", "1.60",
+                "--odds-b", "2.40",
+            ]):
+                from src.odds.cli import main
+                main()
+
+            mock_entry.assert_called_once()
+            call_kwargs = mock_entry.call_args
+            assert call_kwargs is not None
+
+    def test_enter_validates_odds_below_minimum(self, tmp_path, capsys):
+        """CLI `enter` rejects odds < 1.01 with error exit."""
+        with patch("sys.argv", [
+            "cli", "enter",
+            "--tourney-id", "2023-001",
+            "--match-num", "1",
+            "--odds-a", "0.90",   # invalid: < 1.01
+            "--odds-b", "2.40",
+        ]):
+            from src.odds.cli import main
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            assert exc_info.value.code != 0
+
+    def test_enter_validates_odds_b_below_minimum(self, tmp_path, capsys):
+        """CLI `enter` rejects odds-b < 1.01 with error exit."""
+        with patch("sys.argv", [
+            "cli", "enter",
+            "--tourney-id", "2023-001",
+            "--match-num", "1",
+            "--odds-a", "1.60",
+            "--odds-b", "1.00",   # invalid: < 1.01
+        ]):
+            from src.odds.cli import main
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            assert exc_info.value.code != 0
+
+    def test_enter_help_exits_cleanly(self):
+        """CLI `enter --help` exits with code 0."""
+        with patch("sys.argv", ["cli", "enter", "--help"]):
+            from src.odds.cli import main
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            assert exc_info.value.code == 0
+
+
+class TestCLIImportCsvCommand:
+    """Tests for `cli import-csv` subcommand."""
+
+    def test_import_csv_calls_import_csv_odds(self, tmp_path):
+        """CLI `import-csv` calls import_csv_odds with provided --file path."""
+        csv_content = (
+            "Date,Tournament,Winner,Loser,PSW,PSL,Surface\n"
+            "01/06/2023,Wimbledon,Djokovic N.,Federer R.,1.45,2.80,Grass\n"
+        )
+        csv_file = tmp_path / "odds.csv"
+        csv_file.write_text(csv_content)
+
+        with patch("src.odds.cli.import_csv_odds") as mock_import, \
+             patch("src.odds.cli.get_db_path", return_value=str(tmp_path / "test.db")), \
+             patch("src.odds.cli.sqlite3") as mock_sqlite:
+
+            mock_conn = MagicMock()
+            mock_sqlite.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_sqlite.connect.return_value.__exit__ = MagicMock(return_value=False)
+            mock_import.return_value = {"imported": 1, "unlinked": 0, "skipped_no_odds": 0}
+
+            with patch("sys.argv", ["cli", "import-csv", "--file", str(csv_file)]):
+                from src.odds.cli import main
+                main()
+
+            mock_import.assert_called_once()
+
+    def test_import_csv_requires_file_arg(self):
+        """CLI `import-csv` without --file arg exits non-zero."""
+        with patch("sys.argv", ["cli", "import-csv"]):
+            from src.odds.cli import main
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            assert exc_info.value.code != 0
+
+
+class TestCLITrainCommand:
+    """Tests for `cli train` subcommand."""
+
+    def test_train_requires_no_mandatory_args(self, tmp_path):
+        """CLI `train` with defaults succeeds (uses mocked functions)."""
+        import numpy as np
+
+        mock_model = MagicMock()
+        mock_model.predict_proba.return_value = np.array([[0.4, 0.6]])
+
+        with patch("src.odds.cli.build_training_matrix") as mock_build, \
+             patch("src.odds.cli.compute_time_weights") as mock_weights, \
+             patch("src.odds.cli.temporal_split") as mock_split, \
+             patch("src.odds.cli.train_and_calibrate") as mock_train, \
+             patch("src.odds.cli.save_model") as mock_save, \
+             patch("src.odds.cli.get_db_path", return_value=str(tmp_path / "test.db")), \
+             patch("src.odds.cli.sqlite3") as mock_sqlite:
+
+            import numpy as np
+            mock_build.return_value = (
+                np.array([[1.0] * 12]),
+                np.array([1.0]),
+                ["2023-06-01"],
+            )
+            mock_weights.return_value = np.array([1.0])
+            mock_split.return_value = {
+                "X_train": np.array([[1.0] * 12]),
+                "y_train": np.array([1.0]),
+                "w_train": np.array([1.0]),
+                "X_val": np.array([[1.0] * 12]),
+                "y_val": np.array([1.0]),
+                "dates_train": ["2023-06-01"],
+                "dates_val": ["2023-07-01"],
+            }
+            mock_train.return_value = (
+                mock_model,
+                {"val_brier_score": 0.25, "val_log_loss": 0.69,
+                 "calibration_method": "sigmoid",
+                 "brier_sigmoid": 0.25, "brier_isotonic": 0.26},
+            )
+            mock_conn = MagicMock()
+            mock_sqlite.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_sqlite.connect.return_value.__exit__ = MagicMock(return_value=False)
+
+            output_dir = str(tmp_path / "models")
+            with patch("sys.argv", ["cli", "train", "--output-dir", output_dir]):
+                from src.odds.cli import main
+                main()
+
+            mock_train.assert_called_once()
+            mock_save.assert_called_once()
+
+    def test_train_help_exits_cleanly(self):
+        """CLI `train --help` exits with code 0."""
+        with patch("sys.argv", ["cli", "train", "--help"]):
+            from src.odds.cli import main
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            assert exc_info.value.code == 0
+
+
+class TestCLIPredictCommand:
+    """Tests for `cli predict` subcommand."""
+
+    def test_predict_requires_model_path(self):
+        """CLI `predict` without --model-path exits non-zero."""
+        with patch("sys.argv", ["cli", "predict"]):
+            from src.odds.cli import main
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            assert exc_info.value.code != 0
+
+    def test_predict_calls_predict_all_matches(self, tmp_path):
+        """CLI `predict` loads model and calls predict_all_matches."""
+        mock_model = MagicMock()
+        model_path = str(tmp_path / "model.joblib")
+
+        with patch("src.odds.cli.load_model", return_value=mock_model) as mock_load, \
+             patch("src.odds.cli.predict_all_matches") as mock_predict, \
+             patch("src.odds.cli.get_db_path", return_value=str(tmp_path / "test.db")), \
+             patch("src.odds.cli.sqlite3") as mock_sqlite:
+
+            mock_conn = MagicMock()
+            mock_sqlite.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_sqlite.connect.return_value.__exit__ = MagicMock(return_value=False)
+            mock_predict.return_value = {
+                "matches_predicted": 5,
+                "predictions_stored": 10,
+                "with_ev": 3,
+            }
+
+            with patch("sys.argv", ["cli", "predict", "--model-path", model_path]):
+                from src.odds.cli import main
+                main()
+
+            mock_load.assert_called_once_with(model_path)
+            mock_predict.assert_called_once()
+
+    def test_predict_help_exits_cleanly(self):
+        """CLI `predict --help` exits with code 0."""
+        with patch("sys.argv", ["cli", "predict", "--help"]):
+            from src.odds.cli import main
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            assert exc_info.value.code == 0
