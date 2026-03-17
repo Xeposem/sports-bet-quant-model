@@ -206,6 +206,55 @@ CREATE TABLE IF NOT EXISTS article_sentiment (
 );
 
 -- ---------------------------------------------------------------------------
+-- Match Odds: bookmaker decimal odds per match, per bookmaker
+-- Populated by Phase 3 odds ingester (CSV import or manual entry)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS match_odds (
+    tourney_id       TEXT    NOT NULL,
+    match_num        INTEGER NOT NULL,
+    tour             TEXT    NOT NULL DEFAULT 'ATP',
+    bookmaker        TEXT    NOT NULL DEFAULT 'pinnacle',
+    decimal_odds_a   REAL    NOT NULL,  -- odds for player A (winner in Sackmann)
+    decimal_odds_b   REAL    NOT NULL,  -- odds for player B (loser in Sackmann)
+    source           TEXT    NOT NULL,  -- 'csv' or 'manual'
+    imported_at      TEXT    NOT NULL,  -- ISO datetime
+    PRIMARY KEY (tourney_id, match_num, tour, bookmaker),
+    FOREIGN KEY (tourney_id, match_num, tour) REFERENCES matches(tourney_id, match_num, tour)
+);
+
+CREATE INDEX IF NOT EXISTS idx_match_odds_pk
+    ON match_odds(tourney_id, match_num, tour);
+
+-- ---------------------------------------------------------------------------
+-- Predictions: per-match, per-model probability and EV output
+-- Consumed by Phase 4 backtesting, Phase 6 dashboard, Phase 9 signals
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS predictions (
+    tourney_id            TEXT    NOT NULL,
+    match_num             INTEGER NOT NULL,
+    tour                  TEXT    NOT NULL DEFAULT 'ATP',
+    player_id             INTEGER NOT NULL,
+    model_version         TEXT    NOT NULL,   -- e.g. 'logistic_v1'
+    model_prob            REAL,               -- raw logistic output before calibration
+    calibrated_prob       REAL,               -- probability after Platt/isotonic calibration
+    brier_contribution    REAL,               -- (calibrated_prob - outcome)^2 for this match
+    log_loss_contribution REAL,               -- per-match log loss contribution
+    pinnacle_prob         REAL,               -- devigged Pinnacle implied probability (NULL if no odds)
+    decimal_odds          REAL,               -- Pinnacle decimal odds for this player
+    ev_value              REAL,               -- (calibrated_prob * decimal_odds) - 1 (NULL if no odds)
+    edge                  REAL,               -- calibrated_prob - pinnacle_prob (NULL if no odds)
+    predicted_at          TEXT    NOT NULL,   -- ISO datetime
+    PRIMARY KEY (tourney_id, match_num, tour, player_id, model_version),
+    FOREIGN KEY (tourney_id, match_num, tour) REFERENCES matches(tourney_id, match_num, tour)
+);
+
+CREATE INDEX IF NOT EXISTS idx_predictions_model
+    ON predictions(model_version, tourney_id, tour);
+CREATE INDEX IF NOT EXISTS idx_predictions_ev
+    ON predictions(ev_value, model_version)
+    WHERE ev_value IS NOT NULL;
+
+-- ---------------------------------------------------------------------------
 -- Indexes: optimized for temporal query patterns used in Phase 2 feature engineering
 -- ---------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_matches_date        ON matches(tourney_date, tour);
