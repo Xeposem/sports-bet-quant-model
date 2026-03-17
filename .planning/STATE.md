@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 03-baseline-model-ev-framework-01-PLAN.md
-last_updated: "2026-03-17T00:34:51.964Z"
+stopped_at: Completed 03-baseline-model-ev-framework-03-PLAN.md
+last_updated: "2026-03-17T00:42:08.975Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
   percent: 0
 ---
 
@@ -60,6 +60,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02-elo-ratings-feature-engineering P04 | 424 | 3 tasks | 9 files |
 | Phase 03-baseline-model-ev-framework PP02 | 3 | 2 tasks | 5 files |
 | Phase 03-baseline-model-ev-framework P01 | 328 | 2 tasks | 9 files |
+| Phase 03-baseline-model-ev-framework P03 | 20 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,8 @@ Recent decisions affecting current work:
 - [Phase 03-baseline-model-ev-framework]: compute_time_weights reference_date defaults to max date in list for reproducible training (not date.today())
 - [Phase 03-baseline-model-ev-framework]: NULL Elo imputed as 1500.0 via COALESCE in SQL; has_no_elo_w/has_no_elo_l boolean indicators added for missing Elo detection
 - [Phase 03-baseline-model-ev-framework]: token_set_ratio preferred over token_sort_ratio for player name subset matching (100% vs 72.7% for Djokovic in Novak Djokovic)
+- [Phase 03-baseline-model-ev-framework]: predict_match returns [winner_pred, loser_pred] — winner has outcome=1 for brier/log-loss, loser has outcome=0
+- [Phase 03-baseline-model-ev-framework]: get_db_path() in cli.py is patchable (TENNIS_DB env var) for test isolation without real DB
 
 ### Pending Todos
 
@@ -111,6 +114,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17T00:34:51.960Z
-Stopped at: Completed 03-baseline-model-ev-framework-01-PLAN.md
+Last session: 2026-03-17T00:42:08.971Z
+Stopped at: Completed 03-baseline-model-ev-framework-03-PLAN.md
 Resume file: None
