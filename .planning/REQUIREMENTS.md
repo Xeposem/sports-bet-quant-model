@@ -63,8 +63,8 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Backtesting
 
 - [x] **BACK-01**: System runs walk-forward backtesting with strict chronological train/test splits
-- [ ] **BACK-02**: System reports backtest ROI (total, by surface, by tournament level, by model)
-- [ ] **BACK-03**: System generates calibration plots (predicted probability buckets vs empirical win rates)
+- [x] **BACK-02**: System reports backtest ROI (total, by surface, by tournament level, by model)
+- [x] **BACK-03**: System generates calibration plots (predicted probability buckets vs empirical win rates)
 - [x] **BACK-04**: System prevents any form of look-ahead bias in backtesting pipeline
 
 ### Signal Generation & Paper Trading
@@ -141,8 +141,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ODDS-03 | Phase 3 | Complete |
 | ODDS-04 | Phase 3 | Complete |
 | BACK-01 | Phase 4 | Complete |
-| BACK-02 | Phase 4 | Pending |
-| BACK-03 | Phase 4 | Pending |
+| BACK-02 | Phase 4 | Complete |
+| BACK-03 | Phase 4 | Complete |
 | BACK-04 | Phase 4 | Complete |
 | BANK-01 | Phase 4 | Complete |
 | BANK-02 | Phase 4 | Complete |

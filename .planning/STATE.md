@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 04-backtesting-engine 04-01-PLAN.md
-last_updated: "2026-03-17T04:19:04.526Z"
+stopped_at: Completed 04-backtesting-engine 04-02-PLAN.md
+last_updated: "2026-03-17T04:25:22.991Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
   percent: 0
 ---
 
@@ -62,6 +62,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03-baseline-model-ev-framework P01 | 328 | 2 tasks | 9 files |
 | Phase 03-baseline-model-ev-framework P03 | 20 | 2 tasks | 4 files |
 | Phase 04-backtesting-engine P01 | 5 | 2 tasks | 6 files |
+| Phase 04-backtesting-engine P02 | 25 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,9 @@ Recent decisions affecting current work:
 - [Phase 03-baseline-model-ev-framework]: get_db_path() in cli.py is patchable (TENNIS_DB env var) for test isolation without real DB
 - [Phase 04-backtesting-engine]: Year-based walk-forward folds with train_end=Jan 1 of test year for interpretable annual performance analysis
 - [Phase 04-backtesting-engine]: Both winner and loser sides processed per match — model bets on whichever side has positive EV, all decisions logged
+- [Phase 04-backtesting-engine]: kelly_bet > 0 filter for ROI: only bets placed count toward denominator — zero-stake decisions excluded
+- [Phase 04-backtesting-engine]: matplotlib.use('Agg') at module level — must be before pyplot import for headless environments
+- [Phase 04-backtesting-engine]: Rank tier uses bet-on player rank: outcome=1 => winner_rank, outcome=0 => loser_rank
 
 ### Pending Todos
 
@@ -117,6 +121,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17T04:19:04.521Z
-Stopped at: Completed 04-backtesting-engine 04-01-PLAN.md
+Last session: 2026-03-17T04:25:22.986Z
+Stopped at: Completed 04-backtesting-engine 04-02-PLAN.md
 Resume file: None
