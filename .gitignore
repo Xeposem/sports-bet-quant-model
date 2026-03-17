@@ -26,3 +26,6 @@ build/
 .venv/
 venv/
 env/
+
+# Backtest output plots and artifacts
+output/backtest/

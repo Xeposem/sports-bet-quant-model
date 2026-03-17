@@ -586,3 +586,68 @@ class TestPrintSummary:
         # Low-confidence bucket should be flagged
         assert "Clay" in out
         assert "*" in out or "low" in out.lower() or "n=" in out
+
+
+# ---------------------------------------------------------------------------
+# Tests: CLI runner
+# ---------------------------------------------------------------------------
+
+class TestRunnerMainHelp:
+    def test_runner_main_help(self):
+        """runner.main(['--help']) should exit with code 0 (argparse behavior)."""
+        from src.backtest.runner import main
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(["--help"])
+
+        assert exc_info.value.code == 0
+
+    def test_runner_calls_pipeline_in_sequence(self):
+        """runner.main calls run_walk_forward, compute_roi_breakdowns, and
+        generate_calibration_plots in sequence (mock-based test)."""
+        from src.backtest import runner as runner_module
+
+        # Mock all external dependencies
+        mock_summary = {
+            "folds_run": 1,
+            "total_bets": 10,
+            "bets_placed": 5,
+            "bets_skipped": 5,
+            "total_pnl_kelly": 3.0,
+            "total_pnl_flat": 1.0,
+            "final_bankroll": 1003.0,
+            "start_bankroll": 1000.0,
+        }
+        mock_breakdowns = {
+            "overall": {"n_bets": 5, "kelly_roi": 0.01, "flat_roi": 0.005,
+                        "total_pnl_kelly": 3.0, "total_pnl_flat": 1.0},
+            "by_surface": [],
+            "by_tourney_level": [],
+            "by_year": [],
+            "by_ev_bucket": [],
+            "by_rank_tier": [],
+        }
+
+        mock_conn = MagicMock()
+        # .execute() returns something .fetchall() works on
+        mock_conn.execute.return_value.fetchall.return_value = []
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "test.db")
+
+            with (
+                patch.object(runner_module, "get_connection", return_value=mock_conn),
+                patch.object(runner_module, "run_walk_forward", return_value=mock_summary) as mock_wf,
+                patch.object(runner_module, "compute_roi_breakdowns", return_value=mock_breakdowns) as mock_roi,
+                patch.object(runner_module, "generate_calibration_plots", return_value=[]) as mock_cal,
+                patch.object(runner_module, "generate_bankroll_curve", return_value=os.path.join(tmpdir, "bankroll_curve.png")),
+                patch.object(runner_module, "store_calibration_data"),
+                patch.object(runner_module, "print_summary"),
+            ):
+                main_fn = runner_module.main
+                main_fn(["--db", db_path, "--output-dir", tmpdir])
+
+            # run_walk_forward must be called before roi breakdowns
+            mock_wf.assert_called_once()
+            mock_roi.assert_called_once()
+            mock_cal.assert_called_once()
