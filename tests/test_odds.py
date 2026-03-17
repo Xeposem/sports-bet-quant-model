@@ -140,7 +140,7 @@ class TestParseTennisDataCsv:
 class TestFuzzyLinkPlayer:
 
     def test_fuzzy_link_matches_name_variant(self):
-        """fuzzy_link_player matches 'Novak Djokovic' to 'Djokovic' with score >= 85."""
+        """fuzzy_link_player matches 'Novak Djokovic' to 'Djokovic' with score >= 85 using token_set_ratio."""
         from src.odds.linker import fuzzy_link_player
 
         candidates = ["Djokovic", "Federer", "Nadal"]
