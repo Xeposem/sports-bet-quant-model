@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-17T00:11:30.838Z"
+stopped_at: Completed 03-02-PLAN.md — logistic regression training pipeline with calibration
+last_updated: "2026-03-17T00:33:41.399Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 10
+  completed_plans: 8
   percent: 0
 ---
 
@@ -58,6 +58,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02-elo-ratings-feature-engineering P03 | 4 | 2 tasks | 7 files |
 | Phase 02-elo-ratings-feature-engineering P01 | 472 | 2 tasks | 9 files |
 | Phase 02-elo-ratings-feature-engineering P04 | 424 | 3 tasks | 9 files |
+| Phase 03-baseline-model-ev-framework PP02 | 3 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,9 @@ Recent decisions affecting current work:
 - [Phase 02-elo-ratings-feature-engineering]: INSERT OR REPLACE for match_features idempotency — simpler syntax, same semantics as ON CONFLICT DO UPDATE
 - [Phase 02-elo-ratings-feature-engineering]: build_scheduler returns NOT-started scheduler — caller controls lifecycle for FastAPI lifespan pattern
 - [Phase 02-elo-ratings-feature-engineering]: refresh_all uses module-level imports to allow patching at module scope in tests
+- [Phase 03-baseline-model-ev-framework]: CalibratedClassifierCV(FrozenEstimator(pipeline)) used — cv='prefit' deprecated in sklearn 1.6, removed in 1.8
+- [Phase 03-baseline-model-ev-framework]: compute_time_weights reference_date defaults to max date in list for reproducible training (not date.today())
+- [Phase 03-baseline-model-ev-framework]: NULL Elo imputed as 1500.0 via COALESCE in SQL; has_no_elo_w/has_no_elo_l boolean indicators added for missing Elo detection
 
 ### Pending Todos
 
@@ -105,6 +109,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17T00:11:30.835Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-baseline-model-ev-framework/03-CONTEXT.md
+Last session: 2026-03-17T00:33:41.395Z
+Stopped at: Completed 03-02-PLAN.md — logistic regression training pipeline with calibration
+Resume file: None
