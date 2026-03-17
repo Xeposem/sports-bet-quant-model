@@ -65,7 +65,7 @@ Plans:
   3. After importing bookmaker odds, both sides of any match sum to exactly 1.0 +/- 0.001 -- devigging is applied before any EV calculation
   4. The system calculates EV per match as `(p_model x decimal_odds) - 1` and the sign indicates whether a bet has positive or negative expected value
   5. User can enter bookmaker odds via CSV import or manual entry in the dashboard
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 Plans:
 - [ ] 03-01-PLAN.md -- Dependencies, schema (match_odds + predictions tables), odds ingestion pipeline (CSV, devig, fuzzy linker)
 - [ ] 03-02-PLAN.md -- Logistic regression training pipeline with calibration, time-decay weights, and Brier/log-loss metrics
@@ -149,7 +149,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 |-------|----------------|--------|-----------|
 | 1. Data Ingestion & Storage | 3/3 | Complete   | 2026-03-16 |
 | 2. Elo Ratings & Feature Engineering | 3/4 | In Progress|  |
-| 3. Baseline Model & EV Framework | 1/3 | In Progress|  |
+| 3. Baseline Model & EV Framework | 2/3 | In Progress|  |
 | 4. Backtesting Engine | 0/TBD | Not started | - |
 | 5. FastAPI Backend | 0/TBD | Not started | - |
 | 6. React Dashboard Core | 0/TBD | Not started | - |

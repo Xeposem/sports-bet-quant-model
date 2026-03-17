@@ -48,8 +48,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Odds & Expected Value
 
-- [ ] **ODDS-01**: System ingests bookmaker match odds (manual entry or CSV import)
-- [ ] **ODDS-02**: System removes bookmaker vig (devigging) to compute true implied probabilities
+- [x] **ODDS-01**: System ingests bookmaker match odds (manual entry or CSV import)
+- [x] **ODDS-02**: System removes bookmaker vig (devigging) to compute true implied probabilities
 - [ ] **ODDS-03**: System calculates expected value (EV) per bet by comparing model probability to devigged odds
 - [ ] **ODDS-04**: User can manually enter PrizePicks player prop lines via the dashboard
 
@@ -136,8 +136,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FEAT-08 | Phase 2 | Complete |
 | MOD-01 | Phase 3 | Complete |
 | MOD-05 | Phase 3 | Complete |
-| ODDS-01 | Phase 3 | Pending |
-| ODDS-02 | Phase 3 | Pending |
+| ODDS-01 | Phase 3 | Complete |
+| ODDS-02 | Phase 3 | Complete |
 | ODDS-03 | Phase 3 | Pending |
 | ODDS-04 | Phase 3 | Pending |
 | BACK-01 | Phase 4 | Pending |
