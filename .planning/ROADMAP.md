@@ -82,7 +82,7 @@ Plans:
   4. No feature computed in the backtesting pipeline uses data from the test period -- a dedicated look-ahead bias check passes
   5. Bet sizing uses fractional Kelly (default 0.25x) with a configurable hard cap; full Kelly is never the default
   6. Maximum bet size cap is enforced -- no single bet exceeds the configured ceiling regardless of Kelly output
-**Plans:** 0/2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 04-01-PLAN.md -- Schema migration, Kelly bet sizing, walk-forward fold engine with look-ahead bias prevention
 - [ ] 04-02-PLAN.md -- ROI breakdowns, calibration plots, bankroll curve, CLI runner
@@ -153,7 +153,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 1. Data Ingestion & Storage | 3/3 | Complete   | 2026-03-16 |
 | 2. Elo Ratings & Feature Engineering | 3/4 | In Progress|  |
 | 3. Baseline Model & EV Framework | 3/3 | Complete   | 2026-03-17 |
-| 4. Backtesting Engine | 0/2 | Not started | - |
+| 4. Backtesting Engine | 1/2 | In Progress|  |
 | 5. FastAPI Backend | 0/TBD | Not started | - |
 | 6. React Dashboard Core | 0/TBD | Not started | - |
 | 7. Advanced Models & Ensemble | 0/TBD | Not started | - |

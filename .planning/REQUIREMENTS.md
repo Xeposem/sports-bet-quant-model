@@ -55,17 +55,17 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Bet Sizing & Bankroll
 
-- [ ] **BANK-01**: System calculates optimal bet size using fractional Kelly criterion (default 0.25x, configurable)
-- [ ] **BANK-02**: System enforces configurable maximum bet size cap
+- [x] **BANK-01**: System calculates optimal bet size using fractional Kelly criterion (default 0.25x, configurable)
+- [x] **BANK-02**: System enforces configurable maximum bet size cap
 - [ ] **BANK-03**: System runs Monte Carlo bankroll simulations (1,000-10,000 seasons) showing P(ruin), expected terminal bankroll, confidence bands
 - [ ] **BANK-04**: System calculates Sharpe ratio for each betting strategy
 
 ### Backtesting
 
-- [ ] **BACK-01**: System runs walk-forward backtesting with strict chronological train/test splits
+- [x] **BACK-01**: System runs walk-forward backtesting with strict chronological train/test splits
 - [ ] **BACK-02**: System reports backtest ROI (total, by surface, by tournament level, by model)
 - [ ] **BACK-03**: System generates calibration plots (predicted probability buckets vs empirical win rates)
-- [ ] **BACK-04**: System prevents any form of look-ahead bias in backtesting pipeline
+- [x] **BACK-04**: System prevents any form of look-ahead bias in backtesting pipeline
 
 ### Signal Generation & Paper Trading
 
@@ -140,12 +140,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ODDS-02 | Phase 3 | Complete |
 | ODDS-03 | Phase 3 | Complete |
 | ODDS-04 | Phase 3 | Complete |
-| BACK-01 | Phase 4 | Pending |
+| BACK-01 | Phase 4 | Complete |
 | BACK-02 | Phase 4 | Pending |
 | BACK-03 | Phase 4 | Pending |
-| BACK-04 | Phase 4 | Pending |
-| BANK-01 | Phase 4 | Pending |
-| BANK-02 | Phase 4 | Pending |
+| BACK-04 | Phase 4 | Complete |
+| BANK-01 | Phase 4 | Complete |
+| BANK-02 | Phase 4 | Complete |
 | DASH-08 | Phase 5 | Pending |
 | DASH-01 | Phase 6 | Pending |
 | DASH-02 | Phase 6 | Pending |

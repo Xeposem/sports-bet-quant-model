@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 4 context gathered
-last_updated: "2026-03-17T01:31:37.338Z"
+stopped_at: Completed 04-backtesting-engine 04-01-PLAN.md
+last_updated: "2026-03-17T04:19:04.526Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
   completed_phases: 3
-  total_plans: 10
-  completed_plans: 10
+  total_plans: 12
+  completed_plans: 11
   percent: 0
 ---
 
@@ -61,6 +61,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03-baseline-model-ev-framework PP02 | 3 | 2 tasks | 5 files |
 | Phase 03-baseline-model-ev-framework P01 | 328 | 2 tasks | 9 files |
 | Phase 03-baseline-model-ev-framework P03 | 20 | 2 tasks | 4 files |
+| Phase 04-backtesting-engine P01 | 5 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,8 @@ Recent decisions affecting current work:
 - [Phase 03-baseline-model-ev-framework]: token_set_ratio preferred over token_sort_ratio for player name subset matching (100% vs 72.7% for Djokovic in Novak Djokovic)
 - [Phase 03-baseline-model-ev-framework]: predict_match returns [winner_pred, loser_pred] — winner has outcome=1 for brier/log-loss, loser has outcome=0
 - [Phase 03-baseline-model-ev-framework]: get_db_path() in cli.py is patchable (TENNIS_DB env var) for test isolation without real DB
+- [Phase 04-backtesting-engine]: Year-based walk-forward folds with train_end=Jan 1 of test year for interpretable annual performance analysis
+- [Phase 04-backtesting-engine]: Both winner and loser sides processed per match — model bets on whichever side has positive EV, all decisions logged
 
 ### Pending Todos
 
@@ -114,6 +117,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17T01:31:37.334Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-backtesting-engine/04-CONTEXT.md
+Last session: 2026-03-17T04:19:04.521Z
+Stopped at: Completed 04-backtesting-engine 04-01-PLAN.md
+Resume file: None
