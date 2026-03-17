@@ -34,11 +34,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Match Outcome Models
 
-- [ ] **MOD-01**: System trains logistic regression model for match outcome prediction with calibrated probabilities
+- [x] **MOD-01**: System trains logistic regression model for match outcome prediction with calibrated probabilities
 - [ ] **MOD-02**: System trains gradient boosting model (XGBoost) with isotonic calibration for match outcome prediction
 - [ ] **MOD-03**: System trains Bayesian model with credible intervals for match outcome prediction using PyMC
 - [ ] **MOD-04**: System provides multi-model ensemble that blends predictions weighted by recent calibration performance
-- [ ] **MOD-05**: System uses Brier score and log loss as primary model quality metrics (not accuracy)
+- [x] **MOD-05**: System uses Brier score and log loss as primary model quality metrics (not accuracy)
 
 ### Player Prop Models
 
@@ -134,8 +134,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FEAT-06 | Phase 2 | Complete |
 | FEAT-07 | Phase 2 | Complete |
 | FEAT-08 | Phase 2 | Complete |
-| MOD-01 | Phase 3 | Pending |
-| MOD-05 | Phase 3 | Pending |
+| MOD-01 | Phase 3 | Complete |
+| MOD-05 | Phase 3 | Complete |
 | ODDS-01 | Phase 3 | Pending |
 | ODDS-02 | Phase 3 | Pending |
 | ODDS-03 | Phase 3 | Pending |
