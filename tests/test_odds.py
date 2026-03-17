@@ -554,6 +554,8 @@ class TestCLIPredictCommand:
         """CLI `predict` loads model and calls predict_all_matches."""
         mock_model = MagicMock()
         model_path = str(tmp_path / "model.joblib")
+        # Create a placeholder file so the path-exists check passes
+        (tmp_path / "model.joblib").write_text("placeholder")
 
         with patch("src.odds.cli.load_model", return_value=mock_model) as mock_load, \
              patch("src.odds.cli.predict_all_matches") as mock_predict, \
