@@ -1,12 +1,12 @@
 """
-Tests for src/model/trainer.py and src/model/metrics.py.
+Tests for src/model/trainer.py, src/model/metrics.py, and src/model/predictor.py.
 Uses in-memory SQLite with schema applied. Synthetic data only — no real DB.
 """
 import sqlite3
 import tempfile
 import os
 from datetime import date, timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -548,3 +548,346 @@ class TestCalibrationCurveData:
         result = calibration_curve_data(y_true, y_prob)
         for val in result["empirical_freq"]:
             assert 0.0 <= val <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# Task 3 tests: predictor.py — compute_ev, predict_match, predict_all_matches
+# ---------------------------------------------------------------------------
+
+
+def make_mock_model(prob_a=0.6):
+    """Create a mock sklearn model whose predict_proba returns fixed probability."""
+    mock = MagicMock()
+    # predict_proba returns shape (1, 2): [[p_lose, p_win]]
+    mock.predict_proba.return_value = np.array([[1.0 - prob_a, prob_a]])
+    return mock
+
+
+def insert_match_with_players(conn, tourney_id="T001", match_num=1,
+                               tourney_date="2023-06-15",
+                               winner_id=101, loser_id=102):
+    """Insert a tournament and match with specific player IDs."""
+    conn.execute(
+        "INSERT OR IGNORE INTO players (player_id, tour, first_name, last_name) "
+        "VALUES (?, 'ATP', 'PlayerA', 'Winner')",
+        (winner_id,),
+    )
+    conn.execute(
+        "INSERT OR IGNORE INTO players (player_id, tour, first_name, last_name) "
+        "VALUES (?, 'ATP', 'PlayerB', 'Loser')",
+        (loser_id,),
+    )
+    conn.execute(
+        "INSERT OR IGNORE INTO tournaments (tourney_id, tour, tourney_name, tourney_date) "
+        "VALUES (?, 'ATP', 'Test Open', ?)",
+        (tourney_id, tourney_date),
+    )
+    conn.execute(
+        "INSERT OR IGNORE INTO matches "
+        "(tourney_id, match_num, tour, winner_id, loser_id, tourney_date) "
+        "VALUES (?, ?, 'ATP', ?, ?, ?)",
+        (tourney_id, match_num, winner_id, loser_id, tourney_date),
+    )
+    conn.commit()
+
+
+def insert_match_odds_row(conn, tourney_id="T001", match_num=1,
+                           decimal_odds_a=1.60, decimal_odds_b=2.40):
+    """Insert Pinnacle odds row into match_odds."""
+    conn.execute(
+        """INSERT OR REPLACE INTO match_odds
+           (tourney_id, match_num, tour, bookmaker, decimal_odds_a, decimal_odds_b, source, imported_at)
+           VALUES (?, ?, 'ATP', 'pinnacle', ?, ?, 'csv', '2023-06-10T00:00:00Z')""",
+        (tourney_id, match_num, decimal_odds_a, decimal_odds_b),
+    )
+    conn.commit()
+
+
+class TestComputeEv:
+    """compute_ev(calibrated_prob, decimal_odds) -> float."""
+
+    def test_positive_ev(self):
+        """compute_ev(0.6, 2.10) = (0.6 * 2.10) - 1 = 0.26."""
+        from src.model.predictor import compute_ev
+
+        result = compute_ev(0.6, 2.10)
+        assert abs(result - 0.26) < 1e-9
+
+    def test_negative_ev(self):
+        """compute_ev(0.4, 2.10) = (0.4 * 2.10) - 1 = -0.16."""
+        from src.model.predictor import compute_ev
+
+        result = compute_ev(0.4, 2.10)
+        assert abs(result - (-0.16)) < 1e-9
+
+    def test_zero_ev(self):
+        """compute_ev(0.5, 2.0) = 0.0 exactly (fair odds)."""
+        from src.model.predictor import compute_ev
+
+        result = compute_ev(0.5, 2.0)
+        assert abs(result - 0.0) < 1e-9
+
+    def test_returns_float(self):
+        from src.model.predictor import compute_ev
+
+        result = compute_ev(0.6, 1.80)
+        assert isinstance(result, float)
+
+
+class TestPredictMatch:
+    """predict_match returns list of two prediction dicts, one per player."""
+
+    def test_returns_two_predictions(self):
+        """predict_match returns exactly 2 prediction dicts (one per player)."""
+        from src.model.predictor import predict_match
+
+        conn = make_conn()
+        insert_match_with_players(conn)
+        insert_features(conn, "T001", 1, "winner")
+        insert_features(conn, "T001", 1, "loser", elo_overall=1500.0, ranking=100)
+
+        model = make_mock_model(prob_a=0.6)
+        preds = predict_match(model, conn, "T001", 1)
+        assert len(preds) == 2
+
+    def test_probabilities_sum_to_one(self):
+        """P(A wins) + P(B wins) = 1.0."""
+        from src.model.predictor import predict_match
+
+        conn = make_conn()
+        insert_match_with_players(conn)
+        insert_features(conn, "T001", 1, "winner")
+        insert_features(conn, "T001", 1, "loser", elo_overall=1500.0, ranking=100)
+
+        model = make_mock_model(prob_a=0.65)
+        preds = predict_match(model, conn, "T001", 1)
+        probs = [p["calibrated_prob"] for p in preds]
+        assert abs(sum(probs) - 1.0) < 1e-9
+
+    def test_ev_computed_when_odds_present(self):
+        """When Pinnacle odds are present, ev_value and edge are not None."""
+        from src.model.predictor import predict_match
+
+        conn = make_conn()
+        insert_match_with_players(conn)
+        insert_features(conn, "T001", 1, "winner")
+        insert_features(conn, "T001", 1, "loser", elo_overall=1500.0, ranking=100)
+        insert_match_odds_row(conn, decimal_odds_a=1.60, decimal_odds_b=2.40)
+
+        model = make_mock_model(prob_a=0.6)
+        preds = predict_match(model, conn, "T001", 1)
+        for pred in preds:
+            assert pred["ev_value"] is not None
+            assert pred["edge"] is not None
+            assert pred["pinnacle_prob"] is not None
+            assert pred["decimal_odds"] is not None
+
+    def test_ev_null_when_no_odds(self):
+        """When no Pinnacle odds exist, ev_value, edge, pinnacle_prob are None."""
+        from src.model.predictor import predict_match
+
+        conn = make_conn()
+        insert_match_with_players(conn)
+        insert_features(conn, "T001", 1, "winner")
+        insert_features(conn, "T001", 1, "loser", elo_overall=1500.0, ranking=100)
+        # No match_odds inserted
+
+        model = make_mock_model(prob_a=0.6)
+        preds = predict_match(model, conn, "T001", 1)
+        for pred in preds:
+            assert pred["ev_value"] is None
+            assert pred["edge"] is None
+            assert pred["pinnacle_prob"] is None
+
+    def test_prediction_has_required_keys(self):
+        """Each prediction dict has all required schema columns."""
+        from src.model.predictor import predict_match
+
+        conn = make_conn()
+        insert_match_with_players(conn)
+        insert_features(conn, "T001", 1, "winner")
+        insert_features(conn, "T001", 1, "loser", elo_overall=1500.0, ranking=100)
+
+        model = make_mock_model(prob_a=0.6)
+        preds = predict_match(model, conn, "T001", 1)
+        required_keys = {
+            "tourney_id", "match_num", "tour", "player_id",
+            "model_prob", "calibrated_prob",
+            "pinnacle_prob", "decimal_odds", "ev_value", "edge", "predicted_at",
+        }
+        for pred in preds:
+            for key in required_keys:
+                assert key in pred, f"Missing key: {key}"
+
+    def test_ev_formula_correct_with_known_odds(self):
+        """When model gives P(A)=0.6 and decimal_odds_a=2.10, EV for A = 0.26."""
+        from src.model.predictor import predict_match
+
+        conn = make_conn()
+        insert_match_with_players(conn, winner_id=101, loser_id=102)
+        insert_features(conn, "T001", 1, "winner")
+        insert_features(conn, "T001", 1, "loser", elo_overall=1500.0, ranking=100)
+        insert_match_odds_row(conn, decimal_odds_a=2.10, decimal_odds_b=1.80)
+
+        model = make_mock_model(prob_a=0.6)
+        preds = predict_match(model, conn, "T001", 1)
+        # Winner player (player_id=101) gets P=0.6, odds=2.10
+        winner_pred = next(p for p in preds if p["player_id"] == 101)
+        assert abs(winner_pred["ev_value"] - 0.26) < 1e-6
+
+    def test_brier_contribution_when_outcome_known(self):
+        """brier_contribution = (calibrated_prob - outcome)^2 when outcome known."""
+        from src.model.predictor import predict_match
+
+        conn = make_conn()
+        insert_match_with_players(conn, winner_id=101, loser_id=102)
+        insert_features(conn, "T001", 1, "winner")
+        insert_features(conn, "T001", 1, "loser", elo_overall=1500.0, ranking=100)
+
+        model = make_mock_model(prob_a=0.6)
+        preds = predict_match(model, conn, "T001", 1)
+        winner_pred = next(p for p in preds if p["player_id"] == 101)
+        # Winner has outcome=1, prob=0.6 => brier = (0.6-1)^2 = 0.16
+        assert winner_pred["brier_contribution"] is not None
+        assert abs(winner_pred["brier_contribution"] - 0.16) < 1e-6
+
+
+class TestStorePrediction:
+    """store_prediction writes to predictions table idempotently."""
+
+    def test_store_prediction_inserts_row(self):
+        """store_prediction inserts prediction row into DB."""
+        from src.model.predictor import store_prediction
+
+        conn = make_conn()
+        insert_match_with_players(conn)
+
+        pred = {
+            "tourney_id": "T001",
+            "match_num": 1,
+            "tour": "ATP",
+            "player_id": 101,
+            "model_version": "logistic_v1",
+            "model_prob": 0.62,
+            "calibrated_prob": 0.60,
+            "brier_contribution": 0.16,
+            "log_loss_contribution": 0.51,
+            "pinnacle_prob": 0.58,
+            "decimal_odds": 1.60,
+            "ev_value": 0.04,
+            "edge": 0.02,
+            "predicted_at": "2023-06-15T10:00:00Z",
+        }
+        store_prediction(conn, pred)
+
+        row = conn.execute(
+            "SELECT * FROM predictions WHERE tourney_id=? AND match_num=? AND player_id=?",
+            ("T001", 1, 101),
+        ).fetchone()
+        assert row is not None
+        assert abs(row["calibrated_prob"] - 0.60) < 1e-9
+        assert abs(row["ev_value"] - 0.04) < 1e-9
+
+    def test_store_prediction_is_idempotent(self):
+        """Calling store_prediction twice does not duplicate the row."""
+        from src.model.predictor import store_prediction
+
+        conn = make_conn()
+        insert_match_with_players(conn)
+
+        pred = {
+            "tourney_id": "T001",
+            "match_num": 1,
+            "tour": "ATP",
+            "player_id": 101,
+            "model_version": "logistic_v1",
+            "model_prob": 0.62,
+            "calibrated_prob": 0.60,
+            "brier_contribution": None,
+            "log_loss_contribution": None,
+            "pinnacle_prob": None,
+            "decimal_odds": None,
+            "ev_value": None,
+            "edge": None,
+            "predicted_at": "2023-06-15T10:00:00Z",
+        }
+        store_prediction(conn, pred)
+        # Update and re-store to check idempotency
+        pred["calibrated_prob"] = 0.65
+        store_prediction(conn, pred)
+
+        count = conn.execute(
+            "SELECT COUNT(*) FROM predictions WHERE tourney_id='T001' AND match_num=1"
+        ).fetchone()[0]
+        assert count == 1
+
+
+class TestPredictAllMatches:
+    """predict_all_matches processes all matches with features and returns stats."""
+
+    def test_returns_stats_dict(self):
+        """predict_all_matches returns dict with matches_predicted, predictions_stored, with_ev."""
+        from src.model.predictor import predict_all_matches
+
+        conn = make_conn()
+        insert_match_with_players(conn)
+        insert_features(conn, "T001", 1, "winner")
+        insert_features(conn, "T001", 1, "loser", elo_overall=1500.0, ranking=100)
+
+        model = make_mock_model(prob_a=0.6)
+        result = predict_all_matches(model, conn, model_version="logistic_v1")
+        assert "matches_predicted" in result
+        assert "predictions_stored" in result
+        assert "with_ev" in result
+
+    def test_predictions_stored_in_db(self):
+        """predict_all_matches actually inserts rows into predictions table."""
+        from src.model.predictor import predict_all_matches
+
+        conn = make_conn()
+        insert_match_with_players(conn)
+        insert_features(conn, "T001", 1, "winner")
+        insert_features(conn, "T001", 1, "loser", elo_overall=1500.0, ranking=100)
+
+        model = make_mock_model(prob_a=0.6)
+        predict_all_matches(model, conn, model_version="logistic_v1")
+
+        count = conn.execute("SELECT COUNT(*) FROM predictions").fetchone()[0]
+        assert count == 2  # one per player
+
+    def test_with_ev_counts_matches_with_odds(self):
+        """with_ev counts matches that had Pinnacle odds."""
+        from src.model.predictor import predict_all_matches
+
+        conn = make_conn()
+        # Match 1: with odds
+        insert_match_with_players(conn, tourney_id="T001", match_num=1, winner_id=101, loser_id=102)
+        insert_features(conn, "T001", 1, "winner")
+        insert_features(conn, "T001", 1, "loser", elo_overall=1500.0, ranking=100)
+        insert_match_odds_row(conn, tourney_id="T001", match_num=1)
+
+        # Match 2: without odds
+        insert_match_with_players(conn, tourney_id="T002", match_num=2, winner_id=201, loser_id=202)
+        insert_features(conn, "T002", 2, "winner")
+        insert_features(conn, "T002", 2, "loser", elo_overall=1500.0, ranking=100)
+
+        model = make_mock_model(prob_a=0.6)
+        result = predict_all_matches(model, conn, model_version="logistic_v1")
+        assert result["matches_predicted"] == 2
+        assert result["with_ev"] == 1  # only 1 match had odds
+
+    def test_idempotent_reruns(self):
+        """Running predict_all_matches twice does not duplicate rows."""
+        from src.model.predictor import predict_all_matches
+
+        conn = make_conn()
+        insert_match_with_players(conn)
+        insert_features(conn, "T001", 1, "winner")
+        insert_features(conn, "T001", 1, "loser", elo_overall=1500.0, ranking=100)
+
+        model = make_mock_model(prob_a=0.6)
+        predict_all_matches(model, conn, model_version="logistic_v1")
+        predict_all_matches(model, conn, model_version="logistic_v1")
+
+        count = conn.execute("SELECT COUNT(*) FROM predictions").fetchone()[0]
+        assert count == 2  # still just 2 rows (idempotent)
