@@ -263,3 +263,51 @@ CREATE INDEX IF NOT EXISTS idx_matches_loser       ON matches(loser_id, tourney_
 CREATE INDEX IF NOT EXISTS idx_rankings_player     ON rankings(player_id, ranking_date, tour);
 CREATE INDEX IF NOT EXISTS idx_articles_player     ON articles(player_id, published_date, tour);
 CREATE INDEX IF NOT EXISTS idx_match_features_pk   ON match_features(tourney_id, match_num, tour, player_role);
+
+-- ---------------------------------------------------------------------------
+-- Backtest Results: per-match, per-fold backtesting output with Kelly sizing
+-- Populated by Phase 4 walk-forward backtesting engine
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS backtest_results (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    fold_year        INTEGER NOT NULL,
+    tourney_id       TEXT    NOT NULL,
+    match_num        INTEGER NOT NULL,
+    tour             TEXT    NOT NULL DEFAULT 'ATP',
+    model_version    TEXT    NOT NULL,
+    player_id        INTEGER NOT NULL,
+    outcome          INTEGER NOT NULL,
+    calibrated_prob  REAL    NOT NULL,
+    decimal_odds     REAL    NOT NULL,
+    ev               REAL    NOT NULL,
+    kelly_full       REAL    NOT NULL,
+    kelly_bet        REAL    NOT NULL,
+    flat_bet         REAL    NOT NULL DEFAULT 1.0,
+    pnl_kelly        REAL    NOT NULL,
+    pnl_flat         REAL    NOT NULL,
+    bankroll_before  REAL    NOT NULL,
+    bankroll_after   REAL    NOT NULL,
+    surface          TEXT,
+    tourney_level    TEXT,
+    winner_rank      INTEGER,
+    loser_rank       INTEGER,
+    tourney_date     TEXT    NOT NULL,
+    UNIQUE (tourney_id, match_num, tour, player_id, model_version)
+);
+
+CREATE TABLE IF NOT EXISTS calibration_data (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    fold_label     TEXT NOT NULL,
+    model_version  TEXT NOT NULL,
+    bin_midpoints  TEXT NOT NULL,
+    empirical_freq TEXT NOT NULL,
+    n_samples      INTEGER NOT NULL,
+    computed_at    TEXT NOT NULL,
+    UNIQUE (fold_label, model_version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_backtest_results_fold
+    ON backtest_results(fold_year, model_version);
+CREATE INDEX IF NOT EXISTS idx_backtest_results_ev
+    ON backtest_results(ev, model_version)
+    WHERE kelly_bet > 0;
