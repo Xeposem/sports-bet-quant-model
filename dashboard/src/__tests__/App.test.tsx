@@ -18,7 +18,7 @@ describe('App', () => {
 
   it('shows Overview tab content by default', () => {
     render(<App />);
-    // The Overview heading in the tab content panel
-    expect(screen.getByRole('heading', { name: 'Overview' })).toBeInTheDocument();
+    // Monte Carlo Simulation heading is rendered in the Overview tab
+    expect(screen.getByRole('heading', { name: 'Monte Carlo Simulation' })).toBeInTheDocument();
   });
 });
