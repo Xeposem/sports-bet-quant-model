@@ -136,30 +136,25 @@ async def health(request: Request):
 
 
 # ---------------------------------------------------------------------------
-# Router registration (wrapped in try/except during scaffolding)
+# Router registration — read-only GET routers (Phase 5 Plan 02)
 # ---------------------------------------------------------------------------
 
-try:
-    from src.api.routers import predict  # noqa: F401
-    app.include_router(predict.router, prefix="/api/v1")
-except (ImportError, AttributeError):
-    pass
+from src.api.routers import predict, backtest, bankroll, models, calibration, props
 
-try:
-    from src.api.routers import backtest  # noqa: F401
-    app.include_router(backtest.router, prefix="/api/v1")
-except (ImportError, AttributeError):
-    pass
+app.include_router(predict.router, prefix="/api/v1")
+app.include_router(backtest.router, prefix="/api/v1")
+app.include_router(bankroll.router, prefix="/api/v1")
+app.include_router(models.router, prefix="/api/v1")
+app.include_router(calibration.router, prefix="/api/v1")
+app.include_router(props.router, prefix="/api/v1")
+
+# ---------------------------------------------------------------------------
+# Optional write routers (Phase 5 Plan 03 — wrapped in try/except)
+# ---------------------------------------------------------------------------
 
 try:
     from src.api.routers import odds  # noqa: F401
     app.include_router(odds.router, prefix="/api/v1")
-except (ImportError, AttributeError):
-    pass
-
-try:
-    from src.api.routers import props  # noqa: F401
-    app.include_router(props.router, prefix="/api/v1")
 except (ImportError, AttributeError):
     pass
 
