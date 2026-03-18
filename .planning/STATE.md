@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 05-fastapi-backend-05-02-PLAN.md
-last_updated: "2026-03-18T02:59:49.508Z"
+stopped_at: Completed 05-fastapi-backend-05-03-PLAN.md
+last_updated: "2026-03-18T03:00:58.071Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 15
-  completed_plans: 14
+  completed_plans: 15
   percent: 0
 ---
 
@@ -65,6 +65,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 04-backtesting-engine P02 | 25 | 2 tasks | 4 files |
 | Phase 05-fastapi-backend P01 | 6 | 2 tasks | 10 files |
 | Phase 05-fastapi-backend P02 | 455 | 2 tasks | 7 files |
+| Phase 05-fastapi-backend P03 | 25 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,8 @@ Recent decisions affecting current work:
 - [Phase 05-fastapi-backend]: async_app fixture sets app.state directly, bypassing lifespan, for isolated endpoint tests
 - [Phase 05-fastapi-backend]: PRAGMA foreign_keys=OFF required per-connection in aiosqlite test seeder for leaf table inserts without parent rows
 - [Phase 05-fastapi-backend]: props.py GET stub reused from Plan 01 scaffolding — no recreation needed
+- [Phase 05-fastapi-backend]: Module-level imports in router files required for unittest.mock.patch at module scope — lazy imports inside closures cannot be patched
+- [Phase 05-fastapi-backend]: async_app test fixture uses tmp_path file DB not :memory: — sync sqlite3.connect(':memory:') opens new empty DB each call, cannot share schema with async engine
 
 ### Pending Todos
 
@@ -128,6 +131,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T02:59:49.504Z
-Stopped at: Completed 05-fastapi-backend-05-02-PLAN.md
+Last session: 2026-03-18T03:00:58.067Z
+Stopped at: Completed 05-fastapi-backend-05-03-PLAN.md
 Resume file: None
