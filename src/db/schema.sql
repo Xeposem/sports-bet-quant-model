@@ -311,3 +311,20 @@ CREATE INDEX IF NOT EXISTS idx_backtest_results_fold
 CREATE INDEX IF NOT EXISTS idx_backtest_results_ev
     ON backtest_results(ev, model_version)
     WHERE kelly_bet > 0;
+
+-- ---------------------------------------------------------------------------
+-- Prop Lines: manual PrizePicks line entry (TOS prohibits scraping)
+-- Populated via POST /api/v1/props endpoint
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS prop_lines (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    tour            TEXT    NOT NULL DEFAULT 'ATP',
+    player_id       INTEGER,
+    player_name     TEXT    NOT NULL,
+    stat_type       TEXT    NOT NULL,
+    line_value      REAL    NOT NULL,
+    direction       TEXT    NOT NULL,
+    match_date      TEXT    NOT NULL,
+    bookmaker       TEXT    NOT NULL DEFAULT 'prizepicks',
+    entered_at      TEXT    NOT NULL
+);

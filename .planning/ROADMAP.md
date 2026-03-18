@@ -96,7 +96,11 @@ Plans:
   2. Model artifacts are loaded once at startup via lifespan context -- no model is trained inside a request-response cycle
   3. The OpenAPI schema at `/docs` accurately documents all request and response shapes with Pydantic v2 types
   4. All database reads use async SQLAlchemy -- no synchronous blocking I/O inside async endpoints
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 05-01-PLAN.md -- FastAPI skeleton, async SQLAlchemy, Pydantic schemas, job state, test infrastructure
+- [ ] 05-02-PLAN.md -- Read endpoints (predict, backtest, bankroll, models, calibration, props stub)
+- [ ] 05-03-PLAN.md -- Write/action endpoints (odds entry, CSV upload, props entry, refresh, backtest run)
 
 ### Phase 6: React Dashboard Core
 **Goal**: The React dashboard visualizes all validated backtest metrics, calibration plots, ROI breakdowns, model comparisons, and active EV signals via the FastAPI backend
@@ -154,7 +158,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 2. Elo Ratings & Feature Engineering | 3/4 | In Progress|  |
 | 3. Baseline Model & EV Framework | 3/3 | Complete   | 2026-03-17 |
 | 4. Backtesting Engine | 1/2 | In Progress|  |
-| 5. FastAPI Backend | 0/TBD | Not started | - |
+| 5. FastAPI Backend | 0/3 | Not started | - |
 | 6. React Dashboard Core | 0/TBD | Not started | - |
 | 7. Advanced Models & Ensemble | 0/TBD | Not started | - |
 | 8. Player Props | 0/TBD | Not started | - |
