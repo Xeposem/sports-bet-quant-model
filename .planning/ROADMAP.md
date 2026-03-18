@@ -15,7 +15,7 @@ This project builds a quantitative ATP tennis prediction platform from the data 
 - [x] **Phase 3: Baseline Model & EV Framework** - Train logistic regression baseline and calculate expected value against bookmaker odds (completed 2026-03-17)
 - [ ] **Phase 4: Backtesting Engine** - Walk-forward backtest with Kelly bet sizing validates historical edge before any UI work
 - [ ] **Phase 5: FastAPI Backend** - REST API serves validated model predictions and analytics to the frontend
-- [ ] **Phase 6: React Dashboard Core** - Dashboard visualizes all backtest metrics, calibration, and EV signals
+- [x] **Phase 6: React Dashboard Core** - Dashboard visualizes all backtest metrics, calibration, and EV signals (completed 2026-03-18)
 - [ ] **Phase 7: Advanced Models & Ensemble** - GBM and Bayesian models added; multi-model ensemble replaces single baseline
 - [ ] **Phase 8: Player Props** - Bayesian prop prediction model and manual PrizePicks line entry and comparison
 - [ ] **Phase 9: Simulation, Signals & Paper Trading** - Monte Carlo simulation, automated signal generation, and live paper trading
@@ -112,13 +112,14 @@ Plans:
   3. User can view calibration reliability diagrams per model -- this chart is prominently placed on the main dashboard view, not buried
   4. User can view a model comparison table showing per-model Brier score, calibration quality, and ROI
   5. User can view active EV signals with model confidence, expected value, and recommended Kelly stake
-**Plans:** 4/5 plans executed
+**Plans:** 6/6 plans complete
 Plans:
 - [ ] 06-01-PLAN.md -- Scaffold Vite + React + TS project, install deps, Tailwind v3 dark theme, API client + types, app shell with 4-tab nav
 - [ ] 06-02-PLAN.md -- Overview tab: KPI cards, bankroll equity curve (Lightweight Charts), calibration diagram (Nivo), DASH-04 placeholder
 - [ ] 06-03-PLAN.md -- Backtest tab: 5 ROI bar charts, filter bar, paginated bet history table, click-to-filter interaction
 - [ ] 06-04-PLAN.md -- Models tab (comparison table + calibration) and Signals tab (card grid with EV color coding)
 - [ ] 06-05-PLAN.md -- Integration: refresh flow, error boundary, bankroll date popover, skeleton loaders, visual verification
+- [ ] 06-06-PLAN.md -- Gap closure: wire Brier Score KPI to useModels() hook in OverviewTab
 
 ### Phase 7: Advanced Models & Ensemble
 **Goal**: GBM and Bayesian models are trained and validated, and a weighted ensemble replaces the single logistic regression baseline as the primary prediction source
@@ -165,7 +166,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 3. Baseline Model & EV Framework | 3/3 | Complete   | 2026-03-17 |
 | 4. Backtesting Engine | 1/2 | In Progress|  |
 | 5. FastAPI Backend | 2/3 | In Progress|  |
-| 6. React Dashboard Core | 4/5 | In Progress|  |
+| 6. React Dashboard Core | 6/6 | Complete   | 2026-03-18 |
 | 7. Advanced Models & Ensemble | 0/TBD | Not started | - |
 | 8. Player Props | 0/TBD | Not started | - |
 | 9. Simulation, Signals & Paper Trading | 0/TBD | Not started | - |
