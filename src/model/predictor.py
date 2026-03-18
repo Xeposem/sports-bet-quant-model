@@ -23,7 +23,7 @@ from typing import Optional
 
 import numpy as np
 
-from src.model.trainer import LOGISTIC_FEATURES
+from src.model.base import LOGISTIC_FEATURES
 from src.odds.devig import power_method_devig
 
 
@@ -208,6 +208,9 @@ def predict_match(
         "ev_value": ev_a,
         "edge": edge_a,
         "predicted_at": now,
+        "p5": None,
+        "p50": None,
+        "p95": None,
     }
 
     loser_pred = {
@@ -225,6 +228,9 @@ def predict_match(
         "ev_value": ev_b,
         "edge": edge_b,
         "predicted_at": now,
+        "p5": None,
+        "p50": None,
+        "p95": None,
     }
 
     return [winner_pred, loser_pred]
@@ -240,25 +246,35 @@ def store_prediction(conn: sqlite3.Connection, pred: dict) -> None:
     INSERT OR REPLACE a prediction row into the predictions table.
 
     Idempotent — re-running prediction will update existing rows.
+    CI columns (p5, p50, p95) default to None if not present in pred dict,
+    so non-Bayesian callers with legacy dicts continue to work unchanged.
 
     Args:
         conn: SQLite connection.
-        pred: Dict with all predictions columns (must match schema).
+        pred: Dict with predictions columns. p5/p50/p95 are optional (default None).
     """
+    row = {
+        "p5": None,
+        "p50": None,
+        "p95": None,
+        **pred,
+    }
     conn.execute(
         """
         INSERT OR REPLACE INTO predictions
             (tourney_id, match_num, tour, player_id, model_version,
              model_prob, calibrated_prob,
              brier_contribution, log_loss_contribution,
-             pinnacle_prob, decimal_odds, ev_value, edge, predicted_at)
+             pinnacle_prob, decimal_odds, ev_value, edge, predicted_at,
+             p5, p50, p95)
         VALUES
             (:tourney_id, :match_num, :tour, :player_id, :model_version,
              :model_prob, :calibrated_prob,
              :brier_contribution, :log_loss_contribution,
-             :pinnacle_prob, :decimal_odds, :ev_value, :edge, :predicted_at)
+             :pinnacle_prob, :decimal_odds, :ev_value, :edge, :predicted_at,
+             :p5, :p50, :p95)
         """,
-        pred,
+        row,
     )
     conn.commit()
 

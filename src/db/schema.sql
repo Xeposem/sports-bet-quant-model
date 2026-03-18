@@ -243,6 +243,9 @@ CREATE TABLE IF NOT EXISTS predictions (
     decimal_odds          REAL,               -- Pinnacle decimal odds for this player
     ev_value              REAL,               -- (calibrated_prob * decimal_odds) - 1 (NULL if no odds)
     edge                  REAL,               -- calibrated_prob - pinnacle_prob (NULL if no odds)
+    p5                    REAL,               -- Bayesian 5th percentile (90% CI lower bound, NULL for non-Bayesian)
+    p50                   REAL,               -- Bayesian 50th percentile (median, NULL for non-Bayesian)
+    p95                   REAL,               -- Bayesian 95th percentile (90% CI upper bound, NULL for non-Bayesian)
     predicted_at          TEXT    NOT NULL,   -- ISO datetime
     PRIMARY KEY (tourney_id, match_num, tour, player_id, model_version),
     FOREIGN KEY (tourney_id, match_num, tour) REFERENCES matches(tourney_id, match_num, tour)
