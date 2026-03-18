@@ -1,6 +1,9 @@
 """
 Pytest fixtures for sports-bet-quant-model test suite.
 
+Includes both sync fixtures (db_conn, sample_match_df, sample_csv_path)
+and async API fixtures (async_app, async_client) for httpx-based endpoint tests.
+
 Provides:
 - db_conn: in-memory SQLite connection with schema applied
 - sample_match_df: 5-row synthetic ATP match DataFrame
@@ -382,3 +385,51 @@ def sample_csv_path(tmp_path, sample_match_df):
     csv_path = tmp_path / "atp_matches_test.csv"
     sample_match_df.to_csv(csv_path, index=False)
     return csv_path
+
+
+# ---------------------------------------------------------------------------
+# Async API fixtures (Phase 5 — FastAPI)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+async def async_app():
+    """Create FastAPI app with in-memory test DB.
+
+    Bypasses the lifespan context manager by directly setting app.state so tests
+    do not require a real DB file or model artifact on disk.
+    """
+    from httpx import AsyncClient, ASGITransport
+    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+    from src.api.main import app
+    from src.db.connection import init_db
+
+    # Create in-memory sync DB for background jobs that use sqlite3 directly
+    init_db(":memory:")
+
+    # Create async engine pointing to a shared in-memory DB
+    engine = create_async_engine(
+        "sqlite+aiosqlite://",
+        connect_args={"check_same_thread": False},
+    )
+    app.state.async_session_factory = async_sessionmaker(
+        engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    app.state.engine = engine
+    app.state.model = None
+    app.state.db_path = ":memory:"
+
+    yield app
+
+    await engine.dispose()
+
+
+@pytest.fixture
+async def async_client(async_app):
+    """httpx AsyncClient configured to call the FastAPI test app."""
+    from httpx import AsyncClient, ASGITransport
+
+    transport = ASGITransport(app=async_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
