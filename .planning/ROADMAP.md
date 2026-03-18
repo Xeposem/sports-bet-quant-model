@@ -16,7 +16,7 @@ This project builds a quantitative ATP tennis prediction platform from the data 
 - [ ] **Phase 4: Backtesting Engine** - Walk-forward backtest with Kelly bet sizing validates historical edge before any UI work
 - [ ] **Phase 5: FastAPI Backend** - REST API serves validated model predictions and analytics to the frontend
 - [x] **Phase 6: React Dashboard Core** - Dashboard visualizes all backtest metrics, calibration, and EV signals (completed 2026-03-18)
-- [ ] **Phase 7: Advanced Models & Ensemble** - GBM and Bayesian models added; multi-model ensemble replaces single baseline
+- [x] **Phase 7: Advanced Models & Ensemble** - GBM and Bayesian models added; multi-model ensemble replaces single baseline (completed 2026-03-18)
 - [ ] **Phase 8: Player Props** - Bayesian prop prediction model and manual PrizePicks line entry and comparison
 - [ ] **Phase 9: Simulation, Signals & Paper Trading** - Monte Carlo simulation, automated signal generation, and live paper trading
 
@@ -130,7 +130,7 @@ Plans:
   2. The Bayesian model (PyMC) produces credible intervals for each match prediction, not just a point estimate
   3. The ensemble blends all available models weighted by inverse Brier score on the validation set -- no model is hard-coded with a fixed weight
   4. Adding a new model to the ensemble does not require changes to the betting or EV calculation logic
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 Plans:
 - [ ] 07-01-PLAN.md -- Model registry refactor: base.py + logistic.py + trainer.py shim, MODEL_REGISTRY, schema migration (p5/p50/p95)
 - [ ] 07-02-PLAN.md -- XGBoost model with Optuna hyperparameter tuning and dual calibration
@@ -172,6 +172,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 4. Backtesting Engine | 1/2 | In Progress|  |
 | 5. FastAPI Backend | 2/3 | In Progress|  |
 | 6. React Dashboard Core | 6/6 | Complete   | 2026-03-18 |
-| 7. Advanced Models & Ensemble | 3/4 | In Progress|  |
+| 7. Advanced Models & Ensemble | 4/4 | Complete   | 2026-03-18 |
 | 8. Player Props | 0/TBD | Not started | - |
 | 9. Simulation, Signals & Paper Trading | 0/TBD | Not started | - |

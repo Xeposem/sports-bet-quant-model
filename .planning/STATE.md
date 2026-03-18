@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 07-advanced-models-ensemble/07-03-PLAN.md
-last_updated: "2026-03-18T21:32:20.094Z"
+stopped_at: Completed 07-advanced-models-ensemble/07-04-PLAN.md
+last_updated: "2026-03-18T21:38:45.611Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 25
-  completed_plans: 24
+  completed_plans: 25
   percent: 0
 ---
 
@@ -75,6 +75,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 07-advanced-models-ensemble P01 | 4 | 2 tasks | 7 files |
 | Phase 07-advanced-models-ensemble P02 | 4 | 2 tasks | 4 files |
 | Phase 07-advanced-models-ensemble P03 | 8 | 2 tasks | 4 files |
+| Phase 07-advanced-models-ensemble PP04 | 4 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -148,6 +149,7 @@ Recent decisions affecting current work:
 - [Phase 07-advanced-models-ensemble]: pm imported at module level via try/except in bayesian.py to allow @patch(src.model.bayesian.pm) in tests while preserving graceful degradation
 - [Phase 07-advanced-models-ensemble]: scipy downgraded to <1.13 to fix arviz 0.17.1 incompatibility (scipy.signal.gaussian removed in scipy 1.13)
 - [Phase 07-advanced-models-ensemble]: Lazy __init__.py wrappers for bayesian_v1 prevent PyMC/PyTensor load at MODEL_REGISTRY import time
+- [Phase 07-advanced-models-ensemble]: ensemble_v1 registered in MODEL_REGISTRY; XGB test prediction uses build_fold_xgb_test_matches (28-col); _train_model_for_fold dispatches to correct feature path per model_version
 
 ### Pending Todos
 
@@ -162,6 +164,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T21:32:20.089Z
-Stopped at: Completed 07-advanced-models-ensemble/07-03-PLAN.md
+Last session: 2026-03-18T21:38:45.606Z
+Stopped at: Completed 07-advanced-models-ensemble/07-04-PLAN.md
 Resume file: None
