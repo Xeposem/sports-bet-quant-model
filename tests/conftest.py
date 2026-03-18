@@ -392,33 +392,39 @@ def sample_csv_path(tmp_path, sample_match_df):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-async def async_app():
-    """Create FastAPI app with in-memory test DB.
+async def async_app(tmp_path):
+    """Create FastAPI app with a temporary file-based test DB.
+
+    Uses a temp file so both the async SQLAlchemy engine and sync sqlite3 calls
+    (in write endpoints) can share the same database with the schema applied.
 
     Bypasses the lifespan context manager by directly setting app.state so tests
-    do not require a real DB file or model artifact on disk.
+    do not require a real model artifact on disk.
     """
-    from httpx import AsyncClient, ASGITransport
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
     from src.api.main import app
     from src.db.connection import init_db
 
-    # Create in-memory sync DB for background jobs that use sqlite3 directly
-    init_db(":memory:")
+    # Use a temp file so all sqlite3 connections (async + sync) share the same DB
+    db_file = tmp_path / "test.db"
+    db_path = str(db_file)
+    init_db(db_path)
 
-    # Create async engine pointing to a shared in-memory DB
+    # Create async engine pointing to the same temp file
+    db_url = f"sqlite+aiosqlite:///{db_path}"
     engine = create_async_engine(
-        "sqlite+aiosqlite://",
+        db_url,
         connect_args={"check_same_thread": False},
     )
-    app.state.async_session_factory = async_sessionmaker(
+    session_factory = async_sessionmaker(
         engine,
         class_=AsyncSession,
         expire_on_commit=False,
     )
+    app.state.async_session_factory = session_factory
     app.state.engine = engine
     app.state.model = None
-    app.state.db_path = ":memory:"
+    app.state.db_path = db_path
 
     yield app
 
