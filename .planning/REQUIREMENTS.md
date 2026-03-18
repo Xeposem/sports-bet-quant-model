@@ -83,7 +83,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **DASH-05**: React dashboard displays active betting signals with EV and stake recommendations
 - [ ] **DASH-06**: React dashboard displays model comparison view (per-model accuracy, calibration, ROI)
 - [ ] **DASH-07**: React dashboard provides manual entry forms for bookmaker odds and PrizePicks prop lines
-- [ ] **DASH-08**: FastAPI backend serves all model predictions, analytics, and historical data via REST API
+- [x] **DASH-08**: FastAPI backend serves all model predictions, analytics, and historical data via REST API
 
 ## v2 Requirements
 
@@ -146,7 +146,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BACK-04 | Phase 4 | Complete |
 | BANK-01 | Phase 4 | Complete |
 | BANK-02 | Phase 4 | Complete |
-| DASH-08 | Phase 5 | Pending |
+| DASH-08 | Phase 5 | Complete |
 | DASH-01 | Phase 6 | Pending |
 | DASH-02 | Phase 6 | Pending |
 | DASH-03 | Phase 6 | Pending |

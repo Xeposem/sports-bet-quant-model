@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 5 context gathered
-last_updated: "2026-03-17T05:34:44.791Z"
+stopped_at: Completed 05-fastapi-backend-05-01-PLAN.md
+last_updated: "2026-03-18T02:49:30.757Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
   completed_phases: 4
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 15
+  completed_plans: 13
   percent: 0
 ---
 
@@ -63,6 +63,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03-baseline-model-ev-framework P03 | 20 | 2 tasks | 4 files |
 | Phase 04-backtesting-engine P01 | 5 | 2 tasks | 6 files |
 | Phase 04-backtesting-engine P02 | 25 | 2 tasks | 4 files |
+| Phase 05-fastapi-backend P01 | 6 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,9 @@ Recent decisions affecting current work:
 - [Phase 04-backtesting-engine]: kelly_bet > 0 filter for ROI: only bets placed count toward denominator — zero-stake decisions excluded
 - [Phase 04-backtesting-engine]: matplotlib.use('Agg') at module level — must be before pyplot import for headless environments
 - [Phase 04-backtesting-engine]: Rank tier uses bet-on player rank: outcome=1 => winner_rank, outcome=0 => loser_rank
+- [Phase 05-fastapi-backend]: StarletteHTTPException handler required (not FastAPI HTTPException) to catch routing 404s in FastAPI 0.128+
+- [Phase 05-fastapi-backend]: greenlet==3.0.3 pinned for Python 3.9 + Windows compatibility
+- [Phase 05-fastapi-backend]: async_app fixture sets app.state directly, bypassing lifespan, for isolated endpoint tests
 
 ### Pending Todos
 
@@ -121,6 +125,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17T05:34:44.787Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-fastapi-backend/05-CONTEXT.md
+Last session: 2026-03-18T02:49:30.752Z
+Stopped at: Completed 05-fastapi-backend-05-01-PLAN.md
+Resume file: None
