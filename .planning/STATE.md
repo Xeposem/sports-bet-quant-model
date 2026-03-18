@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 07-advanced-models-ensemble/07-01-PLAN.md
-last_updated: "2026-03-18T21:23:42.788Z"
+stopped_at: Completed 07-advanced-models-ensemble/07-02-PLAN.md
+last_updated: "2026-03-18T21:30:19.455Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 25
-  completed_plans: 22
+  completed_plans: 23
   percent: 0
 ---
 
@@ -73,6 +73,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 06-react-dashboard-core P05 | 20 | 2 tasks | 8 files |
 | Phase 06-react-dashboard-core P06 | 5 | 1 tasks | 2 files |
 | Phase 07-advanced-models-ensemble P01 | 4 | 2 tasks | 7 files |
+| Phase 07-advanced-models-ensemble P02 | 4 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -139,6 +140,10 @@ Recent decisions affecting current work:
 - [Phase 07-advanced-models-ensemble]: base.py holds shared utilities; logistic.py holds model-specific logic for clean separation enabling future model types
 - [Phase 07-advanced-models-ensemble]: trainer.py becomes a re-export shim so walk_forward.py, api/main.py, odds/cli.py require zero import changes
 - [Phase 07-advanced-models-ensemble]: store_prediction merges p5/p50/p95 defaults before SQL INSERT for backward compatibility with legacy caller dicts
+- [Phase 07-advanced-models-ensemble]: XGB_FEATURES has 28 entries: 12 logistic + 11 new numeric + 5 one-hot context (surface_clay/grass/hard + level_G/M) — plan comment said 27 but actual list totals 28
+- [Phase 07-advanced-models-ensemble]: XGBoost uses ALL match_features columns (28 pairwise differentials) per user decision — no manual feature selection, let trees decide
+- [Phase 07-advanced-models-ensemble]: build_xgb_training_matrix train_end parameter allows same function for both registry train() and walk-forward fold — avoids SQL duplication; Plan 04 dispatches to it when model_version==xgboost_v1
+- [Phase 07-advanced-models-ensemble]: XGBClassifier uses eval_metric=logloss and verbosity=0 — use_label_encoder removed in XGBoost 1.6
 
 ### Pending Todos
 
@@ -153,6 +158,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T21:23:42.783Z
-Stopped at: Completed 07-advanced-models-ensemble/07-01-PLAN.md
+Last session: 2026-03-18T21:30:19.450Z
+Stopped at: Completed 07-advanced-models-ensemble/07-02-PLAN.md
 Resume file: None
