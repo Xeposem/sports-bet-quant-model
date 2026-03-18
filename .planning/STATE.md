@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 05-fastapi-backend-05-03-PLAN.md
-last_updated: "2026-03-18T03:00:58.071Z"
+stopped_at: Completed 06-react-dashboard-core 06-01-PLAN.md
+last_updated: "2026-03-18T07:54:23.664Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
   completed_phases: 5
-  total_plans: 15
-  completed_plans: 15
+  total_plans: 20
+  completed_plans: 16
   percent: 0
 ---
 
@@ -66,6 +66,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 05-fastapi-backend P01 | 6 | 2 tasks | 10 files |
 | Phase 05-fastapi-backend P02 | 455 | 2 tasks | 7 files |
 | Phase 05-fastapi-backend P03 | 25 | 2 tasks | 6 files |
+| Phase 06-react-dashboard-core P01 | 11 | 2 tasks | 33 files |
 
 ## Accumulated Context
 
@@ -117,6 +118,9 @@ Recent decisions affecting current work:
 - [Phase 05-fastapi-backend]: props.py GET stub reused from Plan 01 scaffolding — no recreation needed
 - [Phase 05-fastapi-backend]: Module-level imports in router files required for unittest.mock.patch at module scope — lazy imports inside closures cannot be patched
 - [Phase 05-fastapi-backend]: async_app test fixture uses tmp_path file DB not :memory: — sync sqlite3.connect(':memory:') opens new empty DB each call, cannot share schema with async engine
+- [Phase 06-react-dashboard-core]: Vitest 4.x requires importing defineConfig from vitest/config for test block TypeScript recognition
+- [Phase 06-react-dashboard-core]: shadcn/ui CLI not automatable for React 19 peer deps — all 9 UI component files created manually
+- [Phase 06-react-dashboard-core]: getByRole(heading) preferred over getByText in tests where text appears in multiple roles (tab + heading)
 
 ### Pending Todos
 
@@ -131,6 +135,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T03:00:58.067Z
-Stopped at: Completed 05-fastapi-backend-05-03-PLAN.md
+Last session: 2026-03-18T07:54:23.659Z
+Stopped at: Completed 06-react-dashboard-core 06-01-PLAN.md
 Resume file: None

@@ -76,12 +76,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Dashboard & API
 
-- [ ] **DASH-01**: React dashboard displays bankroll curve over time
-- [ ] **DASH-02**: React dashboard displays ROI charts (by surface, tournament level, model, time period)
-- [ ] **DASH-03**: React dashboard displays calibration plots per model
-- [ ] **DASH-04**: React dashboard displays Monte Carlo bankroll simulation results
-- [ ] **DASH-05**: React dashboard displays active betting signals with EV and stake recommendations
-- [ ] **DASH-06**: React dashboard displays model comparison view (per-model accuracy, calibration, ROI)
+- [x] **DASH-01**: React dashboard displays bankroll curve over time
+- [x] **DASH-02**: React dashboard displays ROI charts (by surface, tournament level, model, time period)
+- [x] **DASH-03**: React dashboard displays calibration plots per model
+- [x] **DASH-04**: React dashboard displays Monte Carlo bankroll simulation results
+- [x] **DASH-05**: React dashboard displays active betting signals with EV and stake recommendations
+- [x] **DASH-06**: React dashboard displays model comparison view (per-model accuracy, calibration, ROI)
 - [ ] **DASH-07**: React dashboard provides manual entry forms for bookmaker odds and PrizePicks prop lines
 - [x] **DASH-08**: FastAPI backend serves all model predictions, analytics, and historical data via REST API
 
@@ -147,12 +147,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BANK-01 | Phase 4 | Complete |
 | BANK-02 | Phase 4 | Complete |
 | DASH-08 | Phase 5 | Complete |
-| DASH-01 | Phase 6 | Pending |
-| DASH-02 | Phase 6 | Pending |
-| DASH-03 | Phase 6 | Pending |
-| DASH-04 | Phase 6 | Pending |
-| DASH-05 | Phase 6 | Pending |
-| DASH-06 | Phase 6 | Pending |
+| DASH-01 | Phase 6 | Complete |
+| DASH-02 | Phase 6 | Complete |
+| DASH-03 | Phase 6 | Complete |
+| DASH-04 | Phase 6 | Complete |
+| DASH-05 | Phase 6 | Complete |
+| DASH-06 | Phase 6 | Complete |
 | MOD-02 | Phase 7 | Pending |
 | MOD-03 | Phase 7 | Pending |
 | MOD-04 | Phase 7 | Pending |
