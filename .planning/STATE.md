@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 06-react-dashboard-core 06-01-PLAN.md
-last_updated: "2026-03-18T07:54:23.664Z"
+stopped_at: Completed 06-react-dashboard-core 06-03-PLAN.md
+last_updated: "2026-03-18T08:05:41.087Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 20
-  completed_plans: 16
+  completed_plans: 18
   percent: 0
 ---
 
@@ -67,6 +67,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 05-fastapi-backend P02 | 455 | 2 tasks | 7 files |
 | Phase 05-fastapi-backend P03 | 25 | 2 tasks | 6 files |
 | Phase 06-react-dashboard-core P01 | 11 | 2 tasks | 33 files |
+| Phase 06-react-dashboard-core P03 | 7 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,8 @@ Recent decisions affecting current work:
 - [Phase 06-react-dashboard-core]: Vitest 4.x requires importing defineConfig from vitest/config for test block TypeScript recognition
 - [Phase 06-react-dashboard-core]: shadcn/ui CLI not automatable for React 19 peer deps — all 9 UI component files created manually
 - [Phase 06-react-dashboard-core]: getByRole(heading) preferred over getByText in tests where text appears in multiple roles (tab + heading)
+- [Phase 06-react-dashboard-core]: Radix Select disallows value='' — used __all__ sentinel string for All option in FilterBar
+- [Phase 06-react-dashboard-core]: CalibrationChart layers type fixed with 'as any' — Nivo ScatterPlotCustomSvgLayer incompatible with direct function reference
 
 ### Pending Todos
 
@@ -135,6 +138,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T07:54:23.659Z
-Stopped at: Completed 06-react-dashboard-core 06-01-PLAN.md
+Last session: 2026-03-18T08:05:12.096Z
+Stopped at: Completed 06-react-dashboard-core 06-03-PLAN.md
 Resume file: None
