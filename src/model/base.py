@@ -209,3 +209,145 @@ def save_model(calibrated_model, path: str) -> None:
 def load_model(path: str):
     """Load a previously serialized calibrated model from a .joblib file."""
     return joblib.load(path)
+
+
+# ---------------------------------------------------------------------------
+# XGBoost feature set — full match_features column set (27 pairwise features)
+# ---------------------------------------------------------------------------
+
+#: Full feature set for XGBoost gradient boosting model.
+#: Uses ALL numeric match_features columns as pairwise winner-loser differentials,
+#: plus one-hot encoded surface and tourney_level as match context.
+#: Per user decision: "let XGBoost's tree splits discover which features matter".
+XGB_FEATURES = [
+    # --- Same 12 as LOGISTIC_FEATURES ---
+    "elo_diff",           # elo_overall: winner - loser
+    "elo_hard_diff",      # elo_hard: winner - loser
+    "elo_clay_diff",      # elo_clay: winner - loser
+    "elo_grass_diff",     # elo_grass: winner - loser
+    "ranking_diff",       # ranking: winner - loser
+    "ranking_delta_diff", # ranking_delta: winner - loser
+    "h2h_balance",        # h2h_wins - h2h_losses (winner perspective)
+    "form_diff_10",       # form_win_rate_10: winner - loser
+    "form_diff_20",       # form_win_rate_20: winner - loser
+    "fatigue_diff",       # days_since_last: winner - loser
+    "has_no_elo_w",       # 1 if winner has default Elo
+    "has_no_elo_l",       # 1 if loser has default Elo
+    # --- Additional XGBoost features (from remaining match_features columns) ---
+    "elo_overall_rd_diff",  # Glicko-2 rating deviation: winner - loser
+    "elo_hard_rd_diff",     # Hard surface RD: winner - loser
+    "elo_clay_rd_diff",     # Clay surface RD: winner - loser
+    "elo_grass_rd_diff",    # Grass surface RD: winner - loser
+    "h2h_surface_balance",  # h2h_surface_wins - h2h_surface_losses (winner perspective)
+    "ace_rate_diff",        # avg_ace_rate: winner - loser
+    "df_rate_diff",         # avg_df_rate: winner - loser
+    "first_pct_diff",       # avg_first_pct: winner - loser
+    "first_won_pct_diff",   # avg_first_won_pct: winner - loser
+    "sets_7d_diff",         # sets_last_7_days: winner - loser
+    "sentiment_diff",       # sentiment_score: winner - loser
+    # --- Match context (non-differential, same for both players) ---
+    "surface_clay",         # one-hot: 1 if surface=Clay
+    "surface_grass",        # one-hot: 1 if surface=Grass
+    "surface_hard",         # one-hot: 1 if surface=Hard
+    "level_G",              # one-hot: 1 if tourney_level=G (Grand Slam)
+    "level_M",              # one-hot: 1 if tourney_level=M (Masters)
+]
+
+# ---------------------------------------------------------------------------
+# SQL for assembling XGBoost training matrix (all match_features columns)
+# ---------------------------------------------------------------------------
+
+_BUILD_XGB_MATRIX_SQL = """
+    SELECT
+        m.tourney_date,
+        -- Same 12 as logistic
+        COALESCE(w.elo_overall, 1500.0) - COALESCE(l.elo_overall, 1500.0) AS elo_diff,
+        COALESCE(w.elo_hard, 1500.0) - COALESCE(l.elo_hard, 1500.0) AS elo_hard_diff,
+        COALESCE(w.elo_clay, 1500.0) - COALESCE(l.elo_clay, 1500.0) AS elo_clay_diff,
+        COALESCE(w.elo_grass, 1500.0) - COALESCE(l.elo_grass, 1500.0) AS elo_grass_diff,
+        COALESCE(w.ranking, 0) - COALESCE(l.ranking, 0) AS ranking_diff,
+        COALESCE(w.ranking_delta, 0) - COALESCE(l.ranking_delta, 0) AS ranking_delta_diff,
+        COALESCE(w.h2h_wins, 0) - COALESCE(w.h2h_losses, 0) AS h2h_balance,
+        COALESCE(w.form_win_rate_10, 0.5) - COALESCE(l.form_win_rate_10, 0.5) AS form_diff_10,
+        COALESCE(w.form_win_rate_20, 0.5) - COALESCE(l.form_win_rate_20, 0.5) AS form_diff_20,
+        COALESCE(w.days_since_last, 0) - COALESCE(l.days_since_last, 0) AS fatigue_diff,
+        CASE WHEN COALESCE(w.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_w,
+        CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l,
+        -- Additional XGBoost features
+        COALESCE(w.elo_overall_rd, 350.0) - COALESCE(l.elo_overall_rd, 350.0) AS elo_overall_rd_diff,
+        COALESCE(w.elo_hard_rd, 350.0) - COALESCE(l.elo_hard_rd, 350.0) AS elo_hard_rd_diff,
+        COALESCE(w.elo_clay_rd, 350.0) - COALESCE(l.elo_clay_rd, 350.0) AS elo_clay_rd_diff,
+        COALESCE(w.elo_grass_rd, 350.0) - COALESCE(l.elo_grass_rd, 350.0) AS elo_grass_rd_diff,
+        COALESCE(w.h2h_surface_wins, 0) - COALESCE(w.h2h_surface_losses, 0) AS h2h_surface_balance,
+        COALESCE(w.avg_ace_rate, 0.0) - COALESCE(l.avg_ace_rate, 0.0) AS ace_rate_diff,
+        COALESCE(w.avg_df_rate, 0.0) - COALESCE(l.avg_df_rate, 0.0) AS df_rate_diff,
+        COALESCE(w.avg_first_pct, 0.0) - COALESCE(l.avg_first_pct, 0.0) AS first_pct_diff,
+        COALESCE(w.avg_first_won_pct, 0.0) - COALESCE(l.avg_first_won_pct, 0.0) AS first_won_pct_diff,
+        COALESCE(w.sets_last_7_days, 0) - COALESCE(l.sets_last_7_days, 0) AS sets_7d_diff,
+        COALESCE(w.sentiment_score, 0.0) - COALESCE(l.sentiment_score, 0.0) AS sentiment_diff,
+        -- One-hot surface (use winner's surface column, same for both)
+        CASE WHEN w.surface = 'Clay' THEN 1 ELSE 0 END AS surface_clay,
+        CASE WHEN w.surface = 'Grass' THEN 1 ELSE 0 END AS surface_grass,
+        CASE WHEN w.surface = 'Hard' THEN 1 ELSE 0 END AS surface_hard,
+        -- One-hot tourney_level
+        CASE WHEN w.tourney_level = 'G' THEN 1 ELSE 0 END AS level_G,
+        CASE WHEN w.tourney_level = 'M' THEN 1 ELSE 0 END AS level_M
+    FROM match_features w
+    JOIN match_features l
+      ON  w.tourney_id = l.tourney_id
+      AND w.match_num  = l.match_num
+      AND w.tour       = l.tour
+    JOIN matches m
+      ON  w.tourney_id = m.tourney_id
+      AND w.match_num  = m.match_num
+      AND w.tour       = m.tour
+    WHERE w.player_role = 'winner'
+      AND l.player_role = 'loser'
+    ORDER BY m.tourney_date
+"""
+
+
+def build_xgb_training_matrix(
+    conn: sqlite3.Connection,
+    train_end: Optional[str] = None,
+) -> tuple[np.ndarray, np.ndarray, list]:
+    """
+    Assemble pairwise differential training matrix with ALL match_features columns.
+
+    Like build_training_matrix but uses XGB_FEATURES (27 columns) instead of
+    LOGISTIC_FEATURES (12). Includes RD diffs, serve stats, surface/level one-hots.
+
+    Parameters
+    ----------
+    conn:
+        Open SQLite connection with match_features and matches tables populated.
+    train_end:
+        Optional ISO date string. If provided, only rows with
+        tourney_date < train_end are included (for walk-forward folds).
+        If None, all rows are included (for full training).
+
+    Returns
+    -------
+    X: ndarray of shape (n_matches, len(XGB_FEATURES))
+    y: ndarray of shape (n_matches,) — all ones
+    match_dates: list of ISO date strings
+    """
+    if train_end is not None:
+        sql = _BUILD_XGB_MATRIX_SQL.replace(
+            "ORDER BY m.tourney_date",
+            "AND m.tourney_date < :train_end\n          ORDER BY m.tourney_date"
+        )
+        cursor = conn.execute(sql, {"train_end": train_end})
+    else:
+        cursor = conn.execute(_BUILD_XGB_MATRIX_SQL)
+    rows = cursor.fetchall()
+    if not rows:
+        empty_X = np.empty((0, len(XGB_FEATURES)), dtype=np.float64)
+        return empty_X, np.array([], dtype=np.float64), []
+    match_dates = [row[0] for row in rows]
+    X = np.array(
+        [[row[i + 1] for i in range(len(XGB_FEATURES))] for row in rows],
+        dtype=np.float64,
+    )
+    y = np.ones(len(rows), dtype=np.float64)
+    return X, y, match_dates
