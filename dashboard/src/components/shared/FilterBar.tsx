@@ -18,6 +18,9 @@ interface FilterBarProps {
   filters: FilterDef[];
 }
 
+// Radix Select does not allow value="" — use "__all__" as the "All" sentinel
+const ALL_VALUE = '__all__';
+
 export function FilterBar({ filters }: FilterBarProps) {
   return (
     <div className="flex items-center gap-4 bg-slate-800 border-b border-slate-700 h-11 px-6">
@@ -27,8 +30,8 @@ export function FilterBar({ filters }: FilterBarProps) {
             {filter.label}
           </span>
           <Select
-            value={filter.value}
-            onValueChange={filter.onChange}
+            value={filter.value === '' ? ALL_VALUE : filter.value}
+            onValueChange={(val) => filter.onChange(val === ALL_VALUE ? '' : val)}
           >
             <SelectTrigger
               className="h-8 w-36 bg-slate-800 border-slate-700 text-slate-100 text-xs"
@@ -37,7 +40,7 @@ export function FilterBar({ filters }: FilterBarProps) {
               <SelectValue placeholder="All" />
             </SelectTrigger>
             <SelectContent className="bg-slate-800 border-slate-700 text-slate-100">
-              <SelectItem value="">All</SelectItem>
+              <SelectItem value={ALL_VALUE}>All</SelectItem>
               {filter.options.map((opt) => (
                 <SelectItem key={opt} value={opt}>
                   {opt}
