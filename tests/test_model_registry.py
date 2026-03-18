@@ -22,6 +22,14 @@ class TestModelRegistry:
         from src.model import MODEL_REGISTRY
         assert "logistic_v1" in MODEL_REGISTRY
 
+    def test_registry_contains_bayesian_v1(self):
+        from src.model import MODEL_REGISTRY
+        assert "bayesian_v1" in MODEL_REGISTRY
+
+    def test_registry_has_three_models(self):
+        from src.model import MODEL_REGISTRY
+        assert len(MODEL_REGISTRY) >= 3
+
     def test_registry_entry_has_train_and_predict(self):
         from src.model import MODEL_REGISTRY
         for key, entry in MODEL_REGISTRY.items():
