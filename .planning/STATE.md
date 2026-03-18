@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 06-react-dashboard-core 06-06-PLAN.md
-last_updated: "2026-03-18T09:08:04.931Z"
+stopped_at: Completed 07-advanced-models-ensemble/07-01-PLAN.md
+last_updated: "2026-03-18T21:23:42.788Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
   completed_phases: 6
-  total_plans: 21
-  completed_plans: 21
+  total_plans: 25
+  completed_plans: 22
   percent: 0
 ---
 
@@ -72,6 +72,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 06-react-dashboard-core P04 | 8 | 2 tasks | 9 files |
 | Phase 06-react-dashboard-core P05 | 20 | 2 tasks | 8 files |
 | Phase 06-react-dashboard-core P06 | 5 | 1 tasks | 2 files |
+| Phase 07-advanced-models-ensemble P01 | 4 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -135,6 +136,9 @@ Recent decisions affecting current work:
 - [Phase 06-react-dashboard-core]: useRefreshAll polls /refresh/{job_id} every 2 seconds via setInterval until status=complete or error
 - [Phase 06-react-dashboard-core]: ErrorBoundary wraps TabNav only (not Header) so header controls remain usable during render error recovery
 - [Phase 06-react-dashboard-core]: Brier score reads models.data?.data?.[0]?.brier_score — first entry in models array is current active model
+- [Phase 07-advanced-models-ensemble]: base.py holds shared utilities; logistic.py holds model-specific logic for clean separation enabling future model types
+- [Phase 07-advanced-models-ensemble]: trainer.py becomes a re-export shim so walk_forward.py, api/main.py, odds/cli.py require zero import changes
+- [Phase 07-advanced-models-ensemble]: store_prediction merges p5/p50/p95 defaults before SQL INSERT for backward compatibility with legacy caller dicts
 
 ### Pending Todos
 
@@ -149,6 +153,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T09:08:04.925Z
-Stopped at: Completed 06-react-dashboard-core 06-06-PLAN.md
+Last session: 2026-03-18T21:23:42.783Z
+Stopped at: Completed 07-advanced-models-ensemble/07-01-PLAN.md
 Resume file: None
