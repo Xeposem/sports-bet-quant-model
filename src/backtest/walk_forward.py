@@ -23,6 +23,13 @@ from typing import Optional
 import numpy as np
 
 from src.backtest.kelly import compute_kelly_bet, apply_bet_result
+from src.model import MODEL_REGISTRY
+from src.model.base import (
+    build_xgb_training_matrix,
+    XGB_FEATURES,
+    compute_time_weights,
+    temporal_split,
+)
 from src.model.predictor import compute_ev
 from src.model.trainer import (
     LOGISTIC_FEATURES,
@@ -92,6 +99,67 @@ _FOLD_TEST_MATCHES_SQL = """
         COALESCE(w.days_since_last, 0) - COALESCE(l.days_since_last, 0)     AS fatigue_diff,
         CASE WHEN COALESCE(w.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_w,
         CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l,
+        o.decimal_odds_a, o.decimal_odds_b
+    FROM match_features w
+    JOIN match_features l
+      ON  w.tourney_id = l.tourney_id
+      AND w.match_num  = l.match_num
+      AND w.tour       = l.tour
+    JOIN matches m
+      ON  w.tourney_id = m.tourney_id
+      AND w.match_num  = m.match_num
+      AND w.tour       = m.tour
+    LEFT JOIN match_odds o
+      ON  w.tourney_id = o.tourney_id
+      AND w.match_num  = o.match_num
+      AND w.tour       = o.tour
+    WHERE w.player_role = 'winner'
+      AND l.player_role = 'loser'
+      AND m.tourney_date >= :test_start
+      AND m.tourney_date <  :test_end
+    ORDER BY m.tourney_date
+"""
+
+_FOLD_XGB_TEST_MATCHES_SQL = """
+    SELECT
+        m.tourney_id, m.match_num, m.tour,
+        m.winner_id, m.loser_id,
+        m.tourney_date,
+        w.surface, w.tourney_level,
+        w.ranking  AS winner_rank,
+        l.ranking  AS loser_rank,
+        -- Same 12 as logistic
+        COALESCE(w.elo_overall, 1500.0) - COALESCE(l.elo_overall, 1500.0)   AS elo_diff,
+        COALESCE(w.elo_hard,    1500.0) - COALESCE(l.elo_hard,    1500.0)   AS elo_hard_diff,
+        COALESCE(w.elo_clay,    1500.0) - COALESCE(l.elo_clay,    1500.0)   AS elo_clay_diff,
+        COALESCE(w.elo_grass,   1500.0) - COALESCE(l.elo_grass,   1500.0)   AS elo_grass_diff,
+        COALESCE(w.ranking, 0)       - COALESCE(l.ranking, 0)               AS ranking_diff,
+        COALESCE(w.ranking_delta, 0) - COALESCE(l.ranking_delta, 0)         AS ranking_delta_diff,
+        COALESCE(w.h2h_wins, 0)  - COALESCE(w.h2h_losses, 0)               AS h2h_balance,
+        COALESCE(w.form_win_rate_10, 0.5) - COALESCE(l.form_win_rate_10, 0.5) AS form_diff_10,
+        COALESCE(w.form_win_rate_20, 0.5) - COALESCE(l.form_win_rate_20, 0.5) AS form_diff_20,
+        COALESCE(w.days_since_last, 0) - COALESCE(l.days_since_last, 0)     AS fatigue_diff,
+        CASE WHEN COALESCE(w.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_w,
+        CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l,
+        -- Additional XGBoost features
+        COALESCE(w.elo_overall_rd, 350.0) - COALESCE(l.elo_overall_rd, 350.0) AS elo_overall_rd_diff,
+        COALESCE(w.elo_hard_rd, 350.0) - COALESCE(l.elo_hard_rd, 350.0)       AS elo_hard_rd_diff,
+        COALESCE(w.elo_clay_rd, 350.0) - COALESCE(l.elo_clay_rd, 350.0)       AS elo_clay_rd_diff,
+        COALESCE(w.elo_grass_rd, 350.0) - COALESCE(l.elo_grass_rd, 350.0)     AS elo_grass_rd_diff,
+        COALESCE(w.h2h_surface_wins, 0) - COALESCE(w.h2h_surface_losses, 0)   AS h2h_surface_balance,
+        COALESCE(w.avg_ace_rate, 0.0)   - COALESCE(l.avg_ace_rate, 0.0)       AS ace_rate_diff,
+        COALESCE(w.avg_df_rate, 0.0)    - COALESCE(l.avg_df_rate, 0.0)        AS df_rate_diff,
+        COALESCE(w.avg_first_pct, 0.0)  - COALESCE(l.avg_first_pct, 0.0)      AS first_pct_diff,
+        COALESCE(w.avg_first_won_pct, 0.0) - COALESCE(l.avg_first_won_pct, 0.0) AS first_won_pct_diff,
+        COALESCE(w.sets_last_7_days, 0) - COALESCE(l.sets_last_7_days, 0)     AS sets_7d_diff,
+        COALESCE(w.sentiment_score, 0.0) - COALESCE(l.sentiment_score, 0.0)   AS sentiment_diff,
+        -- One-hot surface (match context, same for both players)
+        CASE WHEN w.surface = 'Clay'  THEN 1 ELSE 0 END AS surface_clay,
+        CASE WHEN w.surface = 'Grass' THEN 1 ELSE 0 END AS surface_grass,
+        CASE WHEN w.surface = 'Hard'  THEN 1 ELSE 0 END AS surface_hard,
+        -- One-hot tourney_level
+        CASE WHEN w.tourney_level = 'G' THEN 1 ELSE 0 END AS level_G,
+        CASE WHEN w.tourney_level = 'M' THEN 1 ELSE 0 END AS level_M,
         o.decimal_odds_a, o.decimal_odds_b
     FROM match_features w
     JOIN match_features l
@@ -288,6 +356,75 @@ def build_fold_test_matches(
     return matches
 
 
+def build_fold_xgb_test_matches(
+    conn: sqlite3.Connection,
+    test_start: str,
+    test_end: str,
+) -> list[dict]:
+    """
+    Query test matches with 27/28-column XGB_FEATURES vectors.
+
+    Same structure as build_fold_test_matches but produces XGB_FEATURES-column
+    feature vectors required by XGBoost, instead of 12-column LOGISTIC_FEATURES vectors.
+
+    Parameters
+    ----------
+    conn:
+        Open SQLite connection.
+    test_start:
+        ISO date string (YYYY-MM-DD). Inclusive lower bound.
+    test_end:
+        ISO date string (YYYY-MM-DD). Exclusive upper bound.
+
+    Returns
+    -------
+    List of match dicts with keys:
+        tourney_id, match_num, tour, winner_id, loser_id, tourney_date,
+        surface, tourney_level, winner_rank, loser_rank,
+        features (np.ndarray of len(XGB_FEATURES) columns),
+        decimal_odds_a, decimal_odds_b, has_odds
+    """
+    cursor = conn.execute(
+        _FOLD_XGB_TEST_MATCHES_SQL,
+        {"test_start": test_start, "test_end": test_end},
+    )
+    rows = cursor.fetchall()
+
+    matches = []
+    for row in rows:
+        # Columns: 0=tourney_id, 1=match_num, 2=tour, 3=winner_id, 4=loser_id,
+        #          5=tourney_date, 6=surface, 7=tourney_level, 8=winner_rank,
+        #          9=loser_rank, 10..10+len(XGB_FEATURES)-1=XGB feature columns,
+        #          then decimal_odds_a, decimal_odds_b
+        feature_start = 10
+        feature_vec = np.array(
+            [row[feature_start + i] for i in range(len(XGB_FEATURES))],
+            dtype=np.float64,
+        )
+        odds_offset = feature_start + len(XGB_FEATURES)
+        decimal_odds_a = row[odds_offset]
+        decimal_odds_b = row[odds_offset + 1]
+        has_odds = (decimal_odds_a is not None and decimal_odds_b is not None)
+
+        matches.append({
+            "tourney_id": row[0],
+            "match_num": row[1],
+            "tour": row[2],
+            "winner_id": row[3],
+            "loser_id": row[4],
+            "tourney_date": row[5],
+            "surface": row[6],
+            "tourney_level": row[7],
+            "winner_rank": row[8],
+            "loser_rank": row[9],
+            "features": feature_vec,
+            "decimal_odds_a": decimal_odds_a,
+            "decimal_odds_b": decimal_odds_b,
+            "has_odds": has_odds,
+        })
+    return matches
+
+
 def assert_no_look_ahead(
     train_dates: list[str],
     test_dates: list[str],
@@ -311,6 +448,179 @@ def assert_no_look_ahead(
             f"Look-ahead bias detected: {len(overlap)} test dates found in training data. "
             f"Overlapping dates (sample): {overlap[:5]}"
         )
+
+
+def _train_model_for_fold(model_version, X_train, y_train, X_val, y_val,
+                          w_train, config, conn=None, train_end=None):
+    """Dispatch model training to the correct function based on model_version.
+
+    For logistic_v1: uses pre-built 12-column X_train/X_val arrays
+    For xgboost_v1: IGNORES pre-built arrays, calls build_xgb_training_matrix(conn, train_end)
+                    to get XGB_FEATURES-column arrays, then temporal_split to get X_train/X_val
+    For bayesian_v1: uses pre-built 12-column X_train/X_val arrays
+    For ensemble_v1: trains each component with its correct feature dimensions
+
+    Parameters
+    ----------
+    model_version: str model identifier
+    X_train, y_train, X_val, y_val, w_train: pre-built 12-column logistic arrays
+    config: dict with model-specific configuration
+    conn: sqlite3.Connection (required for xgboost_v1 and ensemble_v1)
+    train_end: str ISO date (required for xgboost_v1 and ensemble_v1)
+
+    Returns (model_or_state, metrics_dict)
+    """
+    if model_version == "logistic_v1":
+        return train_and_calibrate(X_train, y_train, X_val, y_val, w_train)
+
+    elif model_version == "xgboost_v1":
+        # XGBoost needs XGB_FEATURES-column arrays, NOT the 12-column logistic arrays.
+        # Build fresh from DB using build_xgb_training_matrix.
+        if conn is None or train_end is None:
+            raise ValueError("xgboost_v1 requires conn and train_end for XGB feature matrix")
+        from src.model.xgboost_model import train_fold as xgb_train_fold
+        X_xgb, y_xgb, xgb_dates = build_xgb_training_matrix(conn, train_end)
+        w_xgb = compute_time_weights(xgb_dates, reference_date=train_end)
+        xgb_split = temporal_split(X_xgb, y_xgb, w_xgb, xgb_dates)
+        return xgb_train_fold(
+            xgb_split["X_train"], xgb_split["y_train"],
+            xgb_split["X_val"], xgb_split["y_val"],
+            xgb_split["w_train"], config,
+        )
+
+    elif model_version == "bayesian_v1":
+        from src.model.bayesian import train_fold as bayes_train_fold
+        result = bayes_train_fold(X_train, y_train, X_val, y_val, w_train, config=config)
+        metrics = result.pop("metrics")
+        return result, metrics
+
+    elif model_version == "ensemble_v1":
+        # Train each component model with its CORRECT feature dimensions.
+        if conn is None or train_end is None:
+            raise ValueError("ensemble_v1 requires conn and train_end")
+        from src.model.xgboost_model import train_fold as xgb_train_fold
+        from src.model.ensemble import compute_weights
+        models = {}
+        brier_scores = {}
+
+        # --- Logistic: uses 12-column arrays (already provided) ---
+        try:
+            log_model, log_metrics = train_and_calibrate(
+                X_train, y_train, X_val, y_val, w_train
+            )
+            models["logistic_v1"] = log_model
+            brier_scores["logistic_v1"] = log_metrics["val_brier_score"]
+        except Exception as exc:
+            logger.warning("Ensemble fold: logistic failed: %s", exc)
+
+        # --- XGBoost: needs XGB_FEATURES-column arrays from build_xgb_training_matrix ---
+        try:
+            X_xgb, y_xgb, xgb_dates = build_xgb_training_matrix(conn, train_end)
+            w_xgb = compute_time_weights(xgb_dates, reference_date=train_end)
+            xgb_split = temporal_split(X_xgb, y_xgb, w_xgb, xgb_dates)
+            xgb_model, xgb_metrics = xgb_train_fold(
+                xgb_split["X_train"], xgb_split["y_train"],
+                xgb_split["X_val"], xgb_split["y_val"],
+                xgb_split["w_train"], config,
+            )
+            models["xgboost_v1"] = xgb_model
+            brier_scores["xgboost_v1"] = xgb_metrics["val_brier_score"]
+        except Exception as exc:
+            logger.warning("Ensemble fold: xgboost failed: %s", exc)
+
+        # --- Bayesian: uses 12-column arrays (same as logistic) ---
+        try:
+            from src.model.bayesian import train_fold as bayes_train_fold
+            bayes_result = bayes_train_fold(
+                X_train, y_train, X_val, y_val, w_train, config=config
+            )
+            bayes_metrics = bayes_result.pop("metrics")
+            if bayes_metrics.get("converged", False):
+                models["bayesian_v1"] = bayes_result
+                brier_scores["bayesian_v1"] = bayes_metrics["val_brier_score"]
+            else:
+                logger.warning(
+                    "Ensemble fold: bayesian excluded (non-convergent, r_hat=%.3f)",
+                    bayes_metrics.get("max_rhat", -1),
+                )
+        except Exception as exc:
+            logger.warning("Ensemble fold: bayesian failed: %s", exc)
+
+        weights = compute_weights(brier_scores)
+        ensemble_state = {
+            "models": models,
+            "weights": weights,
+            "brier_scores": brier_scores,
+        }
+        ensemble_metrics = {"val_brier_score": None, "component_weights": weights}
+        return ensemble_state, ensemble_metrics
+
+    else:
+        raise ValueError(f"Unknown model_version: {model_version}")
+
+
+def _predict_with_model(model_version, model_or_state, feature_vec,
+                        xgb_feature_vec=None):
+    """Predict using the trained model/state for a given model_version.
+
+    Parameters
+    ----------
+    model_version: str model identifier
+    model_or_state: trained model or ensemble state dict
+    feature_vec: np.ndarray 12-column LOGISTIC_FEATURES vector (reshaped to 1xN)
+    xgb_feature_vec: np.ndarray XGB_FEATURES-column vector (reshaped to 1xN).
+                     Required when model_version is "xgboost_v1" or "ensemble_v1".
+
+    Returns calibrated probability (float).
+    """
+    if model_version == "logistic_v1":
+        proba = model_or_state.predict_proba(feature_vec)
+        return float(proba[0, 1])
+
+    elif model_version == "xgboost_v1":
+        if xgb_feature_vec is None:
+            raise ValueError("xgboost_v1 prediction requires xgb_feature_vec (XGB_FEATURES columns)")
+        proba = model_or_state.predict_proba(xgb_feature_vec)
+        return float(proba[0, 1])
+
+    elif model_version == "bayesian_v1":
+        from src.model.bayesian import predict as bayes_predict
+        result = bayes_predict(model_or_state, feature_vec.flatten())
+        return result["calibrated_prob"]
+
+    elif model_version == "ensemble_v1":
+        from src.model.ensemble import blend
+        predictions = {}
+        weights = model_or_state["weights"]
+        for mk, m in model_or_state["models"].items():
+            if mk not in weights:
+                continue
+            try:
+                if mk == "logistic_v1":
+                    proba = m.predict_proba(feature_vec)
+                    predictions[mk] = float(proba[0, 1])
+                elif mk == "xgboost_v1":
+                    if xgb_feature_vec is None:
+                        logger.warning("Ensemble predict: xgboost skipped, no xgb_feature_vec")
+                        continue
+                    proba = m.predict_proba(xgb_feature_vec)
+                    predictions[mk] = float(proba[0, 1])
+                elif mk == "bayesian_v1":
+                    from src.model.bayesian import predict as bp
+                    r = bp(m, feature_vec.flatten())
+                    predictions[mk] = r["calibrated_prob"]
+            except Exception as exc:
+                logger.warning("Ensemble predict %s failed: %s", mk, exc)
+        if not predictions:
+            return 0.5
+        avail_w = {k: weights[k] for k in predictions if k in weights}
+        total = sum(avail_w.values())
+        norm_w = ({k: v / total for k, v in avail_w.items()}
+                  if total > 0 else {k: 1 / len(predictions) for k in predictions})
+        return blend(predictions, norm_w)
+
+    else:
+        raise ValueError(f"Unknown model_version: {model_version}")
 
 
 def run_fold(
@@ -366,19 +676,30 @@ def run_fold(
         logger.warning("Fold %s: insufficient validation data, skipping", fold_year)
         return [], bankroll
 
-    # Step 4: Train and calibrate
+    # Step 4: Train model via dispatch (conn + train_end threaded for XGBoost/ensemble)
     try:
-        model, _metrics = train_and_calibrate(
-            split["X_train"], split["y_train"],
-            split["X_val"], split["y_val"],
-            split["w_train"],
+        model, _metrics = _train_model_for_fold(
+            model_version, split["X_train"], split["y_train"],
+            split["X_val"], split["y_val"], split["w_train"], fold_config,
+            conn=conn, train_end=train_end,
         )
     except Exception as exc:
-        logger.error("Fold %s: training failed: %s", fold_year, exc)
+        logger.error("Fold %s: training failed for %s: %s", fold_year, model_version, exc)
         return [], bankroll
 
     # Step 5: Get test matches
     test_matches = build_fold_test_matches(conn, test_start, test_end)
+
+    # If model needs XGB_FEATURES-column features, fetch XGB test matches too
+    xgb_test_matches = None
+    xgb_features_by_match: dict = {}
+    if model_version in ("xgboost_v1", "ensemble_v1"):
+        xgb_test_matches = build_fold_xgb_test_matches(conn, test_start, test_end)
+        # Build a lookup dict keyed by (tourney_id, match_num, tour) for fast pairing
+        xgb_features_by_match = {
+            (m["tourney_id"], m["match_num"], m["tour"]): m["features"]
+            for m in xgb_test_matches
+        }
 
     if not test_matches:
         logger.debug("Fold %s: no test matches found", fold_year)
@@ -399,9 +720,18 @@ def run_fold(
         loser_id = match["loser_id"]
         feature_vec = match["features"].reshape(1, -1)
 
-        # Get calibrated probability for winner (class=1)
-        proba = model.predict_proba(feature_vec)
-        prob_winner = float(proba[0, 1])
+        # Get 27/28-column XGB feature vector if needed
+        xgb_feature_vec = None
+        if model_version in ("xgboost_v1", "ensemble_v1"):
+            match_key = (tourney_id, match_num, tour)
+            xgb_feat = xgb_features_by_match.get(match_key)
+            if xgb_feat is not None:
+                xgb_feature_vec = xgb_feat.reshape(1, -1)
+
+        prob_winner = _predict_with_model(
+            model_version, model, feature_vec,
+            xgb_feature_vec=xgb_feature_vec,
+        )
         prob_loser = 1.0 - prob_winner
 
         if not match["has_odds"]:
