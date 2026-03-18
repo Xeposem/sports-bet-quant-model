@@ -1,23 +1,34 @@
 """
-Backtest read endpoints.
+Backtest endpoints.
 
-GET /api/v1/backtest      — aggregate summary stats with ROI breakdowns
-GET /api/v1/backtest/bets — paginated individual bet rows
+GET  /api/v1/backtest            — aggregate summary stats with ROI breakdowns
+GET  /api/v1/backtest/bets       — paginated individual bet rows
+POST /api/v1/backtest/run        — trigger walk-forward backtest as background job
+GET  /api/v1/backtest/run/status — poll backtest job status
 """
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import text
 
 from src.api.deps import DbDep
 from src.api.schemas import (
     BacktestBetRow,
+    BacktestRunRequest,
+    BacktestRunStatus,
     BacktestSummary,
+    JobResponse,
     PaginatedBetsResponse,
 )
+from src.backtest.walk_forward import run_walk_forward
+from src.db.connection import get_connection
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/backtest", tags=["backtest"])
 
@@ -292,3 +303,67 @@ async def get_backtest_bets(
     ]
 
     return PaginatedBetsResponse(total=total, offset=offset, limit=limit, data=data)
+
+
+# ---------------------------------------------------------------------------
+# POST /backtest/run — trigger walk-forward backtest as background job
+# ---------------------------------------------------------------------------
+
+def _run_backtest(job_id: str, db_path: str, config: dict) -> None:
+    """Sync wrapper — runs walk-forward backtest in a thread pool executor."""
+    from src.api.jobs import update_job
+
+    try:
+        update_job(job_id, step="running_walk_forward")
+        conn = get_connection(db_path)
+        try:
+            result = run_walk_forward(conn, config)
+            update_job(job_id, status="complete", step="done", result=result)
+        finally:
+            conn.close()
+    except Exception as exc:
+        logger.error("Backtest job %s failed: %s", job_id, exc, exc_info=True)
+        update_job(job_id, status="failed", error=str(exc))
+
+
+@router.post("/run", response_model=JobResponse)
+async def post_backtest_run(body: BacktestRunRequest, request: Request) -> JobResponse:
+    """Trigger a walk-forward backtest as a background job. Returns job_id to poll."""
+    from src.api.jobs import create_job
+
+    db_path: str = request.app.state.db_path
+    job_id = create_job("backtest")
+
+    config = {
+        "kelly_fraction": body.kelly_fraction,
+        "max_fraction": body.max_bet_pct,
+        "min_ev": body.ev_threshold,
+        "initial_bankroll": body.initial_bankroll,
+        "model_version": body.model_version,
+    }
+
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _run_backtest, job_id, db_path, config)
+
+    return JobResponse(job_id=job_id, status="running")
+
+
+# ---------------------------------------------------------------------------
+# GET /backtest/run/status — poll backtest job status
+# ---------------------------------------------------------------------------
+
+@router.get("/run/status", response_model=BacktestRunStatus)
+async def get_backtest_run_status(job_id: str) -> BacktestRunStatus:
+    """Poll the status of a background backtest job."""
+    from src.api.jobs import get_job
+
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+
+    return BacktestRunStatus(
+        job_id=job_id,
+        status=job.get("status", "unknown"),
+        started_at=job.get("started_at"),
+        result=job.get("result"),
+    )
