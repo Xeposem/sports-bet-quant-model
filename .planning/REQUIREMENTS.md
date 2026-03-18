@@ -36,7 +36,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **MOD-01**: System trains logistic regression model for match outcome prediction with calibrated probabilities
 - [x] **MOD-02**: System trains gradient boosting model (XGBoost) with isotonic calibration for match outcome prediction
-- [ ] **MOD-03**: System trains Bayesian model with credible intervals for match outcome prediction using PyMC
+- [x] **MOD-03**: System trains Bayesian model with credible intervals for match outcome prediction using PyMC
 - [x] **MOD-04**: System provides multi-model ensemble that blends predictions weighted by recent calibration performance
 - [x] **MOD-05**: System uses Brier score and log loss as primary model quality metrics (not accuracy)
 
@@ -154,7 +154,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DASH-05 | Phase 6 | Complete |
 | DASH-06 | Phase 6 | Complete |
 | MOD-02 | Phase 7 | Complete |
-| MOD-03 | Phase 7 | Pending |
+| MOD-03 | Phase 7 | Complete |
 | MOD-04 | Phase 7 | Complete |
 | PROP-01 | Phase 8 | Pending |
 | PROP-02 | Phase 8 | Pending |

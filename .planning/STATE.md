@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 07-advanced-models-ensemble/07-02-PLAN.md
-last_updated: "2026-03-18T21:30:19.455Z"
+stopped_at: Completed 07-advanced-models-ensemble/07-03-PLAN.md
+last_updated: "2026-03-18T21:32:20.094Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 25
-  completed_plans: 23
+  completed_plans: 24
   percent: 0
 ---
 
@@ -74,6 +74,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 06-react-dashboard-core P06 | 5 | 1 tasks | 2 files |
 | Phase 07-advanced-models-ensemble P01 | 4 | 2 tasks | 7 files |
 | Phase 07-advanced-models-ensemble P02 | 4 | 2 tasks | 4 files |
+| Phase 07-advanced-models-ensemble P03 | 8 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -144,6 +145,9 @@ Recent decisions affecting current work:
 - [Phase 07-advanced-models-ensemble]: XGBoost uses ALL match_features columns (28 pairwise differentials) per user decision — no manual feature selection, let trees decide
 - [Phase 07-advanced-models-ensemble]: build_xgb_training_matrix train_end parameter allows same function for both registry train() and walk-forward fold — avoids SQL duplication; Plan 04 dispatches to it when model_version==xgboost_v1
 - [Phase 07-advanced-models-ensemble]: XGBClassifier uses eval_metric=logloss and verbosity=0 — use_label_encoder removed in XGBoost 1.6
+- [Phase 07-advanced-models-ensemble]: pm imported at module level via try/except in bayesian.py to allow @patch(src.model.bayesian.pm) in tests while preserving graceful degradation
+- [Phase 07-advanced-models-ensemble]: scipy downgraded to <1.13 to fix arviz 0.17.1 incompatibility (scipy.signal.gaussian removed in scipy 1.13)
+- [Phase 07-advanced-models-ensemble]: Lazy __init__.py wrappers for bayesian_v1 prevent PyMC/PyTensor load at MODEL_REGISTRY import time
 
 ### Pending Todos
 
@@ -158,6 +162,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T21:30:19.450Z
-Stopped at: Completed 07-advanced-models-ensemble/07-02-PLAN.md
+Last session: 2026-03-18T21:32:20.089Z
+Stopped at: Completed 07-advanced-models-ensemble/07-03-PLAN.md
 Resume file: None

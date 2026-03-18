@@ -130,7 +130,7 @@ Plans:
   2. The Bayesian model (PyMC) produces credible intervals for each match prediction, not just a point estimate
   3. The ensemble blends all available models weighted by inverse Brier score on the validation set -- no model is hard-coded with a fixed weight
   4. Adding a new model to the ensemble does not require changes to the betting or EV calculation logic
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 Plans:
 - [ ] 07-01-PLAN.md -- Model registry refactor: base.py + logistic.py + trainer.py shim, MODEL_REGISTRY, schema migration (p5/p50/p95)
 - [ ] 07-02-PLAN.md -- XGBoost model with Optuna hyperparameter tuning and dual calibration
@@ -172,6 +172,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 4. Backtesting Engine | 1/2 | In Progress|  |
 | 5. FastAPI Backend | 2/3 | In Progress|  |
 | 6. React Dashboard Core | 6/6 | Complete   | 2026-03-18 |
-| 7. Advanced Models & Ensemble | 2/4 | In Progress|  |
+| 7. Advanced Models & Ensemble | 3/4 | In Progress|  |
 | 8. Player Props | 0/TBD | Not started | - |
 | 9. Simulation, Signals & Paper Trading | 0/TBD | Not started | - |
