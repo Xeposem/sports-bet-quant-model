@@ -34,7 +34,7 @@ export function CalibrationChart({ bins, modelVersion }: CalibrationChartProps) 
     return (
       <EmptyState
         heading="Calibration data unavailable"
-        body="Calibration data unavailable for this model."
+        body="No calibration data found for this model."
       />
     );
   }
