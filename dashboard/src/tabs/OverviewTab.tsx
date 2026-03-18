@@ -11,6 +11,7 @@ import { useBacktestSummary } from '../hooks/useBacktest';
 import { useBacktestBets } from '../hooks/useBacktest';
 import { useCalibration } from '../hooks/useCalibration';
 import { useSignals } from '../hooks/useSignals';
+import { useModels } from '../hooks/useModels';
 
 function formatPercent(value: number | undefined | null): string {
   if (value == null) return '—';
@@ -35,13 +36,14 @@ export function OverviewTab() {
   const backtest = useBacktestSummary();
   const calibration = useCalibration();
   const signals = useSignals();
+  const models = useModels();
 
   const dateBets = useBacktestBets(0, 5, clickedDate ? { tourney_date: clickedDate } : undefined);
 
   const isLoading =
-    bankroll.isLoading || backtest.isLoading || calibration.isLoading || signals.isLoading;
+    bankroll.isLoading || backtest.isLoading || calibration.isLoading || signals.isLoading || models.isLoading;
   const isError =
-    bankroll.isError || backtest.isError || calibration.isError || signals.isError;
+    bankroll.isError || backtest.isError || calibration.isError || signals.isError || models.isError;
 
   if (isError) {
     return (
@@ -56,7 +58,7 @@ export function OverviewTab() {
   // KPI values
   const roi = backtest.data?.kelly_roi;
   const pnl = backtest.data?.total_pnl_kelly;
-  const brierScore = null as number | null; // will come from models hook — placeholder per spec
+  const brierScore = models.data?.data?.[0]?.brier_score ?? null;
   const signalCount = signals.data?.data?.length ?? 0;
 
   const roiTrend =

@@ -20,6 +20,9 @@ vi.mock('../hooks/useCalibration', () => ({
 vi.mock('../hooks/useSignals', () => ({
   useSignals: vi.fn(),
 }));
+vi.mock('../hooks/useModels', () => ({
+  useModels: vi.fn(),
+}));
 
 // Mock charts to avoid jsdom rendering issues
 vi.mock('../components/charts/BankrollChart', () => ({
@@ -35,6 +38,7 @@ import { useBankroll } from '../hooks/useBankroll';
 import { useBacktestSummary } from '../hooks/useBacktest';
 import { useCalibration } from '../hooks/useCalibration';
 import { useSignals } from '../hooks/useSignals';
+import { useModels } from '../hooks/useModels';
 
 const mockBankrollData = {
   initial: 1000,
@@ -66,6 +70,20 @@ const mockCalibrationData = {
   bins: [
     { midpoint: 0.1, empirical_freq: 0.09, n_samples: 50 },
     { midpoint: 0.5, empirical_freq: 0.51, n_samples: 100 },
+  ],
+};
+
+const mockModelsData = {
+  data: [
+    {
+      model_version: 'logistic_v1',
+      brier_score: 0.215,
+      log_loss: 0.48,
+      calibration_quality: 'good',
+      kelly_roi: 0.152,
+      flat_roi: 0.08,
+      total_bets: 120,
+    },
   ],
 };
 
@@ -119,6 +137,11 @@ function setupLoadedMocks() {
     isLoading: false,
     isError: false,
   } as any);
+  vi.mocked(useModels).mockReturnValue({
+    data: mockModelsData,
+    isLoading: false,
+    isError: false,
+  } as any);
 }
 
 describe('OverviewTab', () => {
@@ -143,6 +166,7 @@ describe('OverviewTab', () => {
     vi.mocked(useBacktestSummary).mockReturnValue({ isLoading: true, isError: false } as any);
     vi.mocked(useCalibration).mockReturnValue({ isLoading: true, isError: false } as any);
     vi.mocked(useSignals).mockReturnValue({ isLoading: true, isError: false } as any);
+    vi.mocked(useModels).mockReturnValue({ isLoading: true, isError: false } as any);
 
     render(<OverviewTab />);
     const skeletons = screen.getAllByRole('generic').filter((el) =>
@@ -151,11 +175,18 @@ describe('OverviewTab', () => {
     expect(skeletons.length).toBeGreaterThan(0);
   });
 
+  it('renders Brier Score KPI with value from useModels data', () => {
+    setupLoadedMocks();
+    render(<OverviewTab />);
+    expect(screen.getByText('0.2150')).toBeInTheDocument();
+  });
+
   it('shows error message when isError is true', () => {
     vi.mocked(useBankroll).mockReturnValue({ isLoading: false, isError: true } as any);
     vi.mocked(useBacktestSummary).mockReturnValue({ isLoading: false, isError: false } as any);
     vi.mocked(useCalibration).mockReturnValue({ isLoading: false, isError: false } as any);
     vi.mocked(useSignals).mockReturnValue({ isLoading: false, isError: false } as any);
+    vi.mocked(useModels).mockReturnValue({ isLoading: false, isError: false } as any);
 
     render(<OverviewTab />);
     expect(screen.getByRole('alert')).toBeInTheDocument();
