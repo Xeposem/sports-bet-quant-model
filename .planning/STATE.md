@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 06-react-dashboard-core 06-04-PLAN.md
-last_updated: "2026-03-18T08:06:49.978Z"
+stopped_at: Completed 06-react-dashboard-core 06-05-PLAN.md
+last_updated: "2026-03-18T08:28:07.835Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 20
-  completed_plans: 19
+  completed_plans: 20
   percent: 0
 ---
 
@@ -70,6 +70,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 06-react-dashboard-core P03 | 7 | 2 tasks | 8 files |
 | Phase 06-react-dashboard-core P02 | 8 | 2 tasks | 16 files |
 | Phase 06-react-dashboard-core P04 | 8 | 2 tasks | 9 files |
+| Phase 06-react-dashboard-core P05 | 20 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -130,6 +131,8 @@ Recent decisions affecting current work:
 - [Phase 06-react-dashboard-core]: Hook test mocks use as unknown as ReturnType<...> for TanStack Query v5 type compatibility
 - [Phase 06-react-dashboard-core]: CalibrationChart empty state heading/body use distinct text to avoid getByText multiple-element test failures
 - [Phase 06-react-dashboard-core]: Test mocks use 'as unknown as ReturnType' for TanStack Query UseQueryResult type compatibility
+- [Phase 06-react-dashboard-core]: useRefreshAll polls /refresh/{job_id} every 2 seconds via setInterval until status=complete or error
+- [Phase 06-react-dashboard-core]: ErrorBoundary wraps TabNav only (not Header) so header controls remain usable during render error recovery
 
 ### Pending Todos
 
@@ -144,6 +147,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T08:06:49.973Z
-Stopped at: Completed 06-react-dashboard-core 06-04-PLAN.md
+Last session: 2026-03-18T08:28:07.830Z
+Stopped at: Completed 06-react-dashboard-core 06-05-PLAN.md
 Resume file: None
