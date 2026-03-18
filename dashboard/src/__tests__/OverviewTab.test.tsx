@@ -8,7 +8,11 @@ vi.mock('../hooks/useBankroll', () => ({
 }));
 vi.mock('../hooks/useBacktest', () => ({
   useBacktestSummary: vi.fn(),
-  useBacktestBets: vi.fn(),
+  useBacktestBets: vi.fn(() => ({
+    isLoading: false,
+    isError: false,
+    data: { total: 0, offset: 0, limit: 5, data: [] },
+  })),
 }));
 vi.mock('../hooks/useCalibration', () => ({
   useCalibration: vi.fn(),

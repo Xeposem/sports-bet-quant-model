@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useSignals } from '../hooks/useSignals';
+import { useRefreshAll } from '../hooks/useRefresh';
 import { SignalCard } from '../components/shared/SignalCard';
 import { EmptyState } from '../components/shared/EmptyState';
 import { SkeletonCard } from '../components/shared/SkeletonCard';
 import { FilterBar } from '../components/shared/FilterBar';
+import { toast } from 'sonner';
 import type { PredictionRow } from '../api/types';
 
 type SortBy = 'ev' | 'date';
@@ -19,6 +21,16 @@ export function SignalsTab() {
     surface: filterParams.surface || undefined,
     min_ev: filterParams.min_ev > 0 ? filterParams.min_ev : undefined,
   });
+
+  const refresh = useRefreshAll();
+
+  const handleRefresh = () => {
+    refresh.mutate(undefined, {
+      onError: () => {
+        toast.error('Refresh failed — check the API server logs for details.');
+      },
+    });
+  };
 
   const filters = [
     {
@@ -82,7 +94,7 @@ export function SignalsTab() {
           <EmptyState
             heading="No active signals"
             body="No bets currently exceed the EV threshold. Click Refresh Data to fetch the latest predictions."
-            action={{ label: 'Refresh Data', onClick: () => {} }}
+            action={{ label: 'Refresh Data', onClick: handleRefresh }}
           />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

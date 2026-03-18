@@ -2,6 +2,15 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { SignalsTab } from '../tabs/SignalsTab';
 
+vi.mock('../hooks/useRefresh', () => ({
+  useRefreshAll: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+    isSuccess: false,
+    isError: false,
+  })),
+}));
+
 vi.mock('../hooks/useSignals', () => ({
   useSignals: vi.fn(() => ({
     isLoading: false,

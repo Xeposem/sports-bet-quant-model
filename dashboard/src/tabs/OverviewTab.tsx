@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { BankrollChart } from '../components/charts/BankrollChart';
 import { CalibrationChart } from '../components/charts/CalibrationChart';
 import { KpiCard } from '../components/shared/KpiCard';
@@ -6,6 +8,7 @@ import { SkeletonCard } from '../components/shared/SkeletonCard';
 import { EmptyState } from '../components/shared/EmptyState';
 import { useBankroll } from '../hooks/useBankroll';
 import { useBacktestSummary } from '../hooks/useBacktest';
+import { useBacktestBets } from '../hooks/useBacktest';
 import { useCalibration } from '../hooks/useCalibration';
 import { useSignals } from '../hooks/useSignals';
 
@@ -26,10 +29,14 @@ function formatBrier(value: number | undefined | null): string {
 }
 
 export function OverviewTab() {
+  const [clickedDate, setClickedDate] = useState<string | null>(null);
+
   const bankroll = useBankroll();
   const backtest = useBacktestSummary();
   const calibration = useCalibration();
   const signals = useSignals();
+
+  const dateBets = useBacktestBets(0, 5, clickedDate ? { tourney_date: clickedDate } : undefined);
 
   const isLoading =
     bankroll.isLoading || backtest.isLoading || calibration.isLoading || signals.isLoading;
@@ -94,10 +101,49 @@ export function OverviewTab() {
               {isLoading ? (
                 <SkeletonCard variant="chart" height={280} />
               ) : (
-                <BankrollChart
-                  data={bankroll.data?.curve ?? []}
-                  initialBankroll={bankroll.data?.initial ?? 1000}
-                />
+                <Popover
+                  open={clickedDate !== null}
+                  onOpenChange={(open) => { if (!open) setClickedDate(null); }}
+                >
+                  <PopoverTrigger asChild>
+                    <div>
+                      <BankrollChart
+                        data={bankroll.data?.curve ?? []}
+                        initialBankroll={bankroll.data?.initial ?? 1000}
+                        onDateClick={(date) => setClickedDate(date)}
+                      />
+                    </div>
+                  </PopoverTrigger>
+                  <PopoverContent className="bg-slate-800 border-slate-700 text-slate-100 w-80">
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold text-slate-100">
+                        Bets on {clickedDate}
+                      </h3>
+                      {dateBets.isLoading ? (
+                        <p className="text-xs text-slate-500">Loading...</p>
+                      ) : dateBets.data?.data && dateBets.data.data.length > 0 ? (
+                        <ul className="space-y-1">
+                          {dateBets.data.data.slice(0, 5).map((bet) => (
+                            <li
+                              key={`${bet.tourney_id}-${bet.match_num}-${bet.player_id}`}
+                              className="text-xs text-slate-300 flex justify-between"
+                            >
+                              <span className="truncate max-w-40">{bet.tourney_id}</span>
+                              <span className={bet.outcome === 1 ? 'text-green-500' : 'text-red-500'}>
+                                {bet.outcome === 1 ? 'W' : 'L'}
+                              </span>
+                              <span className={bet.pnl_kelly >= 0 ? 'text-green-500' : 'text-red-500'}>
+                                {bet.pnl_kelly >= 0 ? '+' : ''}{bet.pnl_kelly.toFixed(2)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-slate-500">No bets found for this date.</p>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               )}
             </CardContent>
           </Card>
