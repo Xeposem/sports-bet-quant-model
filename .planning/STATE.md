@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 06-react-dashboard-core 06-03-PLAN.md
-last_updated: "2026-03-18T08:05:41.087Z"
+stopped_at: Completed 06-react-dashboard-core 06-02-PLAN.md
+last_updated: "2026-03-18T08:05:56.653Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
@@ -68,6 +68,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 05-fastapi-backend P03 | 25 | 2 tasks | 6 files |
 | Phase 06-react-dashboard-core P01 | 11 | 2 tasks | 33 files |
 | Phase 06-react-dashboard-core P03 | 7 | 2 tasks | 8 files |
+| Phase 06-react-dashboard-core P02 | 8 | 2 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -124,6 +125,8 @@ Recent decisions affecting current work:
 - [Phase 06-react-dashboard-core]: getByRole(heading) preferred over getByText in tests where text appears in multiple roles (tab + heading)
 - [Phase 06-react-dashboard-core]: Radix Select disallows value='' — used __all__ sentinel string for All option in FilterBar
 - [Phase 06-react-dashboard-core]: CalibrationChart layers type fixed with 'as any' — Nivo ScatterPlotCustomSvgLayer incompatible with direct function reference
+- [Phase 06-react-dashboard-core]: Lightweight Charts v5 addSeries(BaselineSeries) API used, not deprecated addBaselineSeries()
+- [Phase 06-react-dashboard-core]: Hook test mocks use as unknown as ReturnType<...> for TanStack Query v5 type compatibility
 
 ### Pending Todos
 
@@ -138,6 +141,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T08:05:12.096Z
-Stopped at: Completed 06-react-dashboard-core 06-03-PLAN.md
+Last session: 2026-03-18T08:05:56.648Z
+Stopped at: Completed 06-react-dashboard-core 06-02-PLAN.md
 Resume file: None

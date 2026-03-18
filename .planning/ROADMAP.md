@@ -112,7 +112,7 @@ Plans:
   3. User can view calibration reliability diagrams per model -- this chart is prominently placed on the main dashboard view, not buried
   4. User can view a model comparison table showing per-model Brier score, calibration quality, and ROI
   5. User can view active EV signals with model confidence, expected value, and recommended Kelly stake
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 Plans:
 - [ ] 06-01-PLAN.md -- Scaffold Vite + React + TS project, install deps, Tailwind v3 dark theme, API client + types, app shell with 4-tab nav
 - [ ] 06-02-PLAN.md -- Overview tab: KPI cards, bankroll equity curve (Lightweight Charts), calibration diagram (Nivo), DASH-04 placeholder
@@ -165,7 +165,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 3. Baseline Model & EV Framework | 3/3 | Complete   | 2026-03-17 |
 | 4. Backtesting Engine | 1/2 | In Progress|  |
 | 5. FastAPI Backend | 2/3 | In Progress|  |
-| 6. React Dashboard Core | 2/5 | In Progress|  |
+| 6. React Dashboard Core | 3/5 | In Progress|  |
 | 7. Advanced Models & Ensemble | 0/TBD | Not started | - |
 | 8. Player Props | 0/TBD | Not started | - |
 | 9. Simulation, Signals & Paper Trading | 0/TBD | Not started | - |
