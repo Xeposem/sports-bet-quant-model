@@ -43,8 +43,8 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Player Prop Models
 
 - [x] **PROP-01**: System predicts player stat distributions (aces, games won, double faults) for PrizePicks props
-- [ ] **PROP-02**: System compares prop predictions against manually entered PrizePicks lines to identify value
-- [ ] **PROP-03**: System tracks prop prediction accuracy over time (directional validation)
+- [x] **PROP-02**: System compares prop predictions against manually entered PrizePicks lines to identify value
+- [x] **PROP-03**: System tracks prop prediction accuracy over time (directional validation)
 
 ### Odds & Expected Value
 
@@ -157,8 +157,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MOD-03 | Phase 7 | Complete |
 | MOD-04 | Phase 7 | Complete |
 | PROP-01 | Phase 8 | Complete |
-| PROP-02 | Phase 8 | Pending |
-| PROP-03 | Phase 8 | Pending |
+| PROP-02 | Phase 8 | Complete |
+| PROP-03 | Phase 8 | Complete |
 | BANK-03 | Phase 9 | Pending |
 | BANK-04 | Phase 9 | Pending |
 | SIG-01 | Phase 9 | Pending |

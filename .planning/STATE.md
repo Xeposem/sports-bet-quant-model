@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 08-player-props 08-01-PLAN.md
-last_updated: "2026-03-19T09:14:01.916Z"
+stopped_at: Completed 08-player-props 08-02-PLAN.md
+last_updated: "2026-03-19T09:22:13.810Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 28
-  completed_plans: 26
+  completed_plans: 27
   percent: 0
 ---
 
@@ -77,6 +77,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 07-advanced-models-ensemble P03 | 8 | 2 tasks | 4 files |
 | Phase 07-advanced-models-ensemble PP04 | 4 | 2 tasks | 5 files |
 | Phase 08-player-props P01 | 572 | 3 tasks | 10 files |
+| Phase 08-player-props P02 | 6 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -155,6 +156,9 @@ Recent decisions affecting current work:
 - [Phase 08-player-props]: max_k = max(50, int(mu * 6)) for NegBin tail coverage -- mu*4 insufficient for high mu low alpha
 - [Phase 08-player-props]: match_stats uses player_role not player_id -- training queries join through matches to get winner_id/loser_id
 - [Phase 08-player-props]: predict_and_store imports PROP_REGISTRY at function level to avoid circular import with src.props.__init__
+- [Phase 08-player-props]: GET /accuracy registered before GET '' route -- FastAPI would treat 'accuracy' as path param otherwise
+- [Phase 08-player-props]: resolve_props joins match_stats through matches using player_role -- match_stats has no player_id column
+- [Phase 08-player-props]: p_hit = p_over if direction=over else 1-p_over for consistent prop line evaluation in both directions
 
 ### Pending Todos
 
@@ -169,6 +173,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T09:14:01.909Z
-Stopped at: Completed 08-player-props 08-01-PLAN.md
+Last session: 2026-03-19T09:22:13.804Z
+Stopped at: Completed 08-player-props 08-02-PLAN.md
 Resume file: None
