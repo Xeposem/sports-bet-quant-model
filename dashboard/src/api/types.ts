@@ -93,3 +93,47 @@ export interface RefreshStatusResponse {
   started_at: string | null;
   result: Record<string, unknown> | null;
 }
+
+// Props schemas
+export interface PropPrediction {
+  id: number;
+  player_name: string;
+  stat_type: 'aces' | 'games_won' | 'double_faults';
+  match_date: string;
+  mu: number;
+  pmf: number[];
+  model_version: string;
+  actual_value: number | null;
+  resolved_at: string | null;
+  line_value: number | null;
+  direction: 'over' | 'under' | null;
+  p_hit: number | null;
+}
+
+export interface PropLineEntry {
+  player_name: string;
+  stat_type: 'aces' | 'games_won' | 'double_faults';
+  line_value: number;
+  direction: 'over' | 'under';
+  match_date: string;
+}
+
+export interface PropsListResponse {
+  status: string;
+  data: PropPrediction[];
+}
+
+export interface PropAccuracyBin {
+  predicted_p: number;
+  actual_hit_rate: number;
+  n: number;
+}
+
+export interface PropAccuracyResponse {
+  status: string;
+  overall_hit_rate: number | null;
+  hit_rate_by_stat: Record<string, number | null>;
+  total_tracked: number;
+  rolling_30d: Array<{ date: string; hit_rate: number }>;
+  calibration_bins: PropAccuracyBin[];
+}
