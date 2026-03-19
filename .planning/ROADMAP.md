@@ -17,7 +17,7 @@ This project builds a quantitative ATP tennis prediction platform from the data 
 - [ ] **Phase 5: FastAPI Backend** - REST API serves validated model predictions and analytics to the frontend
 - [x] **Phase 6: React Dashboard Core** - Dashboard visualizes all backtest metrics, calibration, and EV signals (completed 2026-03-18)
 - [x] **Phase 7: Advanced Models & Ensemble** - GBM and Bayesian models added; multi-model ensemble replaces single baseline (completed 2026-03-18)
-- [ ] **Phase 8: Player Props** - Bayesian prop prediction model and manual PrizePicks line entry and comparison
+- [ ] **Phase 8: Player Props** - Poisson/NegBin prop prediction models, manual PrizePicks line entry, PMF visualization, and accuracy tracking
 - [ ] **Phase 9: Simulation, Signals & Paper Trading** - Monte Carlo simulation, automated signal generation, and live paper trading
 
 ## Phase Details
@@ -145,7 +145,11 @@ Plans:
   1. The system produces a predicted distribution (mean and confidence interval) for aces, games won, and double faults per player per match
   2. User can enter a PrizePicks prop line (player, stat, over/under threshold) via the dashboard and see whether the model prediction shows value
   3. The dashboard displays prop prediction accuracy tracked over time as directional validation (model direction vs. actual outcome)
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 08-01-PLAN.md -- PROP_REGISTRY, score parser, base utilities, Poisson/NegBin stat models (aces, double_faults, games_won), CLI
+- [ ] 08-02-PLAN.md -- API endpoints (GET /props, GET /props/accuracy), prop resolver, refresh pipeline integration
+- [ ] 08-03-PLAN.md -- Props dashboard tab: entry form, PMF chart, value badges, accuracy KPIs, hit rate + calibration charts
 
 ### Phase 9: Simulation, Signals & Paper Trading
 **Goal**: Monte Carlo bankroll simulation quantifies ruin risk, automated signal generation identifies value bets above a configurable EV threshold, and the paper trading engine tracks fake-money P&L over time
@@ -173,5 +177,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 5. FastAPI Backend | 2/3 | In Progress|  |
 | 6. React Dashboard Core | 6/6 | Complete   | 2026-03-18 |
 | 7. Advanced Models & Ensemble | 4/4 | Complete   | 2026-03-18 |
-| 8. Player Props | 0/TBD | Not started | - |
+| 8. Player Props | 0/3 | Not started | - |
 | 9. Simulation, Signals & Paper Trading | 0/TBD | Not started | - |
