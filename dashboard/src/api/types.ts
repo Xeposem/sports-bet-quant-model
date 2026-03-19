@@ -118,6 +118,15 @@ export interface PropLineEntry {
   match_date: string;
 }
 
+export interface PropLineResponse {
+  id: number;
+  player_name: string;
+  stat_type: string;
+  line_value: number;
+  direction: string;
+  match_date: string;
+}
+
 export interface PropsListResponse {
   status: string;
   data: PropPrediction[];

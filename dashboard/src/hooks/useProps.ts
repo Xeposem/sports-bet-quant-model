@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api/client';
-import type { PropsListResponse, PropLineEntry, PropAccuracyResponse, PropPrediction } from '../api/types';
+import type { PropsListResponse, PropLineEntry, PropLineResponse, PropAccuracyResponse } from '../api/types';
 
 export function useProps() {
   return useQuery<PropsListResponse>({
@@ -13,9 +13,9 @@ export function useProps() {
 
 export function useSubmitPropLine() {
   const queryClient = useQueryClient();
-  return useMutation<PropPrediction, Error, PropLineEntry>({
+  return useMutation<PropLineResponse, Error, PropLineEntry>({
     mutationFn: (entry: PropLineEntry) =>
-      apiFetch<PropPrediction>('/props', {
+      apiFetch<PropLineResponse>('/props', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(entry),

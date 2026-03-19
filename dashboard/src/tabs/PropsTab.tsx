@@ -17,7 +17,7 @@ import { EmptyState } from '../components/shared/EmptyState';
 import { CalibrationChart } from '../components/charts/CalibrationChart';
 import { PmfChart } from '../components/charts/PmfChart';
 import { useProps, useSubmitPropLine, usePropAccuracy } from '../hooks/useProps';
-import type { PropPrediction, PropLineEntry, CalibrationBin } from '../api/types';
+import type { PropPrediction, CalibrationBin } from '../api/types';
 
 type StatType = 'aces' | 'games_won' | 'double_faults';
 type Direction = 'over' | 'under';
@@ -140,7 +140,7 @@ export function PropsTab() {
       toast.error('Please select a stat type and direction.');
       return;
     }
-    const entry: PropLineEntry = {
+    const entry = {
       player_name: playerName,
       stat_type: statType as StatType,
       line_value: parseFloat(lineValue),
@@ -148,8 +148,22 @@ export function PropsTab() {
       match_date: matchDate,
     };
     submitMutation.mutate(entry, {
-      onSuccess: (data) => {
-        setCurrentPrediction(data);
+      onSuccess: () => {
+        // After the prop line is stored, refetch predictions and find the match
+        propsQuery.refetch().then((res) => {
+          const predictions = res.data?.data ?? [];
+          const match = predictions.find(
+            (p) =>
+              p.player_name.toLowerCase() === playerName.toLowerCase() &&
+              p.stat_type === statType &&
+              p.match_date === matchDate,
+          );
+          if (match) {
+            setCurrentPrediction(match);
+          } else {
+            toast.info('Prop line saved. No prediction available yet for this player/date — run the prop models first.');
+          }
+        });
       },
       onError: (err) => {
         const msg = err.message ?? '';
