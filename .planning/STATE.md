@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 08-player-props 08-02-PLAN.md
-last_updated: "2026-03-19T09:22:13.810Z"
+stopped_at: Completed 08-03-PLAN.md
+last_updated: "2026-03-19T21:30:36.156Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 28
-  completed_plans: 27
+  completed_plans: 28
   percent: 0
 ---
 
@@ -159,6 +159,9 @@ Recent decisions affecting current work:
 - [Phase 08-player-props]: GET /accuracy registered before GET '' route -- FastAPI would treat 'accuracy' as path param otherwise
 - [Phase 08-player-props]: resolve_props joins match_stats through matches using player_role -- match_stats has no player_id column
 - [Phase 08-player-props]: p_hit = p_over if direction=over else 1-p_over for consistent prop line evaluation in both directions
+- [Phase 08-player-props]: useSubmitPropLine handles POST response as PropLineResponse (id only), then refetches GET /props to find matching PropPrediction by id
+- [Phase 08-player-props]: PropLineResponse type added separately from PropPrediction -- POST returns minimal record, GET returns full prediction with pmf/p_hit
+- [Phase 08-player-props]: PmfChart slices pmf array to mu +/- 15 range to avoid rendering 50+ empty bars at chart edges
 
 ### Pending Todos
 
@@ -173,6 +176,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T09:22:13.804Z
-Stopped at: Completed 08-player-props 08-02-PLAN.md
+Last session: 2026-03-19T21:30:31.022Z
+Stopped at: Completed 08-03-PLAN.md
 Resume file: None
