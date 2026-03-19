@@ -4,6 +4,8 @@ Unit tests for src/props package.
 Task 1: score_parser, compute_pmf, p_over, PROP_REGISTRY (all pass)
 Task 2: GLM model training/prediction, schema (unskipped in Task 2)
 Task 3: predict_and_store, CLI (unskipped in Task 3)
+Plan 02, Task 4: Resolver tests
+Plan 02, Task 5: GET /props and GET /props/accuracy endpoint tests
 """
 
 import json
@@ -560,3 +562,134 @@ def test_resolve_props_skips_unmatched():
 
     row = conn.execute("SELECT actual_value FROM prop_predictions WHERE player_id=9999").fetchone()
     assert row["actual_value"] is None
+
+
+# ---------------------------------------------------------------------------
+# Plan 02, Task 5: GET /props and GET /props/accuracy endpoint tests
+# ---------------------------------------------------------------------------
+
+
+def _seed_props_in_db(db_path: str):
+    """Seed prop_predictions and prop_lines into the test DB via raw sqlite3."""
+    import sqlite3, json as _json
+    from src.props.base import compute_pmf
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = OFF")
+
+    # Insert a player
+    conn.execute("INSERT OR IGNORE INTO players (player_id, tour, first_name, last_name) VALUES (1001, 'ATP', 'Roger', 'Federer')")
+
+    # Insert a prop_prediction for aces
+    pmf = compute_pmf(6.5, "poisson")
+    conn.execute("""
+        INSERT OR IGNORE INTO prop_predictions
+        (tour, player_id, player_name, stat_type, match_date, mu, pmf_json, model_version, predicted_at)
+        VALUES ('ATP', 1001, 'Roger Federer', 'aces', '2024-05-01', 6.5, ?, 'aces_v1', '2024-04-30T00:00:00')
+    """, (_json.dumps(pmf),))
+
+    # Insert a matching prop_line for that prediction
+    conn.execute("""
+        INSERT OR IGNORE INTO prop_lines
+        (tour, player_id, player_name, stat_type, line_value, direction, match_date, bookmaker, entered_at)
+        VALUES ('ATP', 1001, 'Roger Federer', 'aces', 5.5, 'over', '2024-05-01', 'prizepicks', '2024-04-30T00:00:00')
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+def _seed_resolved_props_in_db(db_path: str):
+    """Seed resolved prop_predictions + prop_lines for accuracy tests."""
+    import sqlite3, json as _json
+    from src.props.base import compute_pmf
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = OFF")
+
+    conn.execute("INSERT OR IGNORE INTO players (player_id, tour, first_name, last_name) VALUES (2001, 'ATP', 'Test', 'Player')")
+
+    pmf = compute_pmf(6.0, "poisson")
+    # Resolved prediction (actual_value=8 > line_value=5.5 over -> hit)
+    conn.execute("""
+        INSERT OR IGNORE INTO prop_predictions
+        (tour, player_id, player_name, stat_type, match_date, mu, pmf_json, model_version,
+         predicted_at, actual_value, resolved_at)
+        VALUES ('ATP', 2001, 'Test Player', 'aces', '2024-06-01', 6.0, ?, 'aces_v1',
+                '2024-05-31T00:00:00', 8, '2024-06-02T00:00:00')
+    """, (_json.dumps(pmf),))
+
+    conn.execute("""
+        INSERT OR IGNORE INTO prop_lines
+        (tour, player_id, player_name, stat_type, line_value, direction, match_date, bookmaker, entered_at)
+        VALUES ('ATP', 2001, 'Test Player', 'aces', 5.5, 'over', '2024-06-01', 'prizepicks', '2024-05-31T00:00:00')
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+async def test_get_props_status(async_client, tmp_path):
+    """GET /props returns status='ok' (not 'not_available') when predictions exist."""
+    # Seed data into the test DB used by the fixture
+    import inspect
+    from httpx import AsyncClient
+    # Get the db_path from the app state via the client transport
+    app = async_client._transport.app
+    db_path = app.state.db_path
+
+    _seed_props_in_db(db_path)
+
+    response = await async_client.get("/api/v1/props")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert isinstance(data["data"], list)
+    assert len(data["data"]) > 0
+    # Verify p_hit is present (computed from PMF + line_value)
+    row = data["data"][0]
+    assert "p_hit" in row
+    assert row["p_hit"] is not None
+    assert 0.0 <= row["p_hit"] <= 1.0
+
+
+async def test_get_props_empty_ok(async_client):
+    """GET /props returns status='ok' with empty data when no predictions exist."""
+    response = await async_client.get("/api/v1/props")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["data"] == []
+
+
+async def test_accuracy_kpis(async_client):
+    """GET /props/accuracy returns accuracy metrics when resolved data exists."""
+    app = async_client._transport.app
+    db_path = app.state.db_path
+
+    _seed_resolved_props_in_db(db_path)
+
+    response = await async_client.get("/api/v1/props/accuracy")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["total_tracked"] == 1
+    assert data["overall_hit_rate"] is not None
+    # actual_value=8 > line_value=5.5 -> hit -> 100% hit rate
+    assert data["overall_hit_rate"] == 1.0
+    assert "hit_rate_by_stat" in data
+    assert "rolling_30d" in data
+    assert len(data["rolling_30d"]) > 0
+    assert "calibration_bins" in data
+
+
+async def test_accuracy_empty_ok(async_client):
+    """GET /props/accuracy returns ok with zero total_tracked when no resolved data."""
+    response = await async_client.get("/api/v1/props/accuracy")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["total_tracked"] == 0
+    assert data["overall_hit_rate"] is None
