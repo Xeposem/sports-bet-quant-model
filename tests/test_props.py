@@ -352,7 +352,6 @@ def test_schema_has_prop_predictions():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skip("Implemented in Task 3")
 def test_predict_and_store():
     """Test predict_and_store writes rows to prop_predictions."""
     import src.props.aces as aces_mod
@@ -374,20 +373,19 @@ def test_predict_and_store():
         assert row["predicted_at"] is not None
 
 
-@pytest.mark.skip("Implemented in Task 3")
-def test_predict_and_store_no_model():
+def test_predict_and_store_no_model(monkeypatch, tmp_path):
     """predict_and_store with no saved model should return predicted=0 gracefully."""
+    import src.props.base as base_mod
     from src.props.base import predict_and_store
+
+    # Point PROP_MODEL_DIR at a temp dir with no models
+    monkeypatch.setattr(base_mod, "PROP_MODEL_DIR", str(tmp_path))
     conn = _make_test_db_with_data(5)
-    # Use a stat type that definitely has no saved model (use temp dir approach)
-    import tempfile, os
-    old_dir = __import__("src.props.base", fromlist=["PROP_MODEL_DIR"]).PROP_MODEL_DIR
     result = predict_and_store(conn, stat_types=["aces"], date_from="2023-01-01", date_to="2023-12-31")
-    # Either raises FileNotFoundError or returns predicted=0
-    assert result["predicted"] == 0 or isinstance(result, dict)
+    # No saved model -> graceful skip -> predicted=0
+    assert result["predicted"] == 0
 
 
-@pytest.mark.skip("Implemented in Task 3")
 def test_cli_predict_help():
     """CLI predict --help exits 0 and contains --date-from."""
     import subprocess, sys
