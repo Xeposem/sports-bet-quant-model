@@ -396,3 +396,167 @@ def test_cli_predict_help():
     )
     assert result.returncode == 0
     assert "--date-from" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# Task 4 (Plan 02): Resolver tests
+# ---------------------------------------------------------------------------
+
+
+def _make_resolver_db():
+    """Create minimal in-memory DB with prop_predictions + match data for resolver tests."""
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = OFF")
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS matches (
+            tourney_id TEXT NOT NULL,
+            match_num INTEGER NOT NULL,
+            tour TEXT NOT NULL DEFAULT 'ATP',
+            winner_id INTEGER,
+            loser_id INTEGER,
+            score TEXT,
+            tourney_date TEXT NOT NULL,
+            match_type TEXT NOT NULL DEFAULT 'completed',
+            retirement_flag INTEGER NOT NULL DEFAULT 0,
+            stats_normalized INTEGER NOT NULL DEFAULT 0,
+            stats_missing INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (tourney_id, match_num, tour)
+        );
+
+        CREATE TABLE IF NOT EXISTS match_stats (
+            tourney_id TEXT NOT NULL,
+            match_num INTEGER NOT NULL,
+            tour TEXT NOT NULL DEFAULT 'ATP',
+            player_role TEXT NOT NULL,
+            ace INTEGER,
+            df INTEGER,
+            svpt INTEGER,
+            first_in INTEGER,
+            first_won INTEGER,
+            second_won INTEGER,
+            sv_gms INTEGER,
+            bp_saved INTEGER,
+            bp_faced INTEGER,
+            PRIMARY KEY (tourney_id, match_num, tour, player_role)
+        );
+
+        CREATE TABLE IF NOT EXISTS prop_predictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tour TEXT NOT NULL DEFAULT 'ATP',
+            player_id INTEGER NOT NULL,
+            player_name TEXT NOT NULL,
+            stat_type TEXT NOT NULL,
+            tourney_id TEXT,
+            match_num INTEGER,
+            match_date TEXT NOT NULL,
+            mu REAL NOT NULL,
+            pmf_json TEXT NOT NULL,
+            model_version TEXT NOT NULL,
+            predicted_at TEXT NOT NULL,
+            actual_value INTEGER,
+            resolved_at TEXT,
+            UNIQUE (tour, player_id, stat_type, match_date)
+        );
+    """)
+    conn.commit()
+    return conn
+
+
+def test_resolve_props():
+    """resolve_props resolves aces prediction when match_stats data is available."""
+    from src.props.resolver import resolve_props
+
+    conn = _make_resolver_db()
+
+    # Insert match with winner_id=1001
+    conn.execute("""
+        INSERT INTO matches (tourney_id, match_num, tour, winner_id, loser_id, score, tourney_date, match_type)
+        VALUES ('T001', 1, 'ATP', 1001, 1002, '6-3 7-5', '2024-01-15', 'completed')
+    """)
+    # Insert match_stats for the winner
+    conn.execute("""
+        INSERT INTO match_stats (tourney_id, match_num, tour, player_role, ace, df, svpt)
+        VALUES ('T001', 1, 'ATP', 'winner', 7, 3, 60)
+    """)
+    # Insert unresolved prop prediction
+    conn.execute("""
+        INSERT INTO prop_predictions
+        (tour, player_id, player_name, stat_type, match_date, mu, pmf_json, model_version, predicted_at)
+        VALUES ('ATP', 1001, 'Roger Federer', 'aces', '2024-01-15', 6.5, '[0.1, 0.2, 0.3]', 'aces_v1', '2024-01-14T00:00:00')
+    """)
+    conn.commit()
+
+    result = resolve_props(conn)
+
+    assert result["resolved"] == 1
+    assert result["skipped"] == 0
+
+    row = conn.execute("SELECT actual_value, resolved_at FROM prop_predictions WHERE player_id=1001").fetchone()
+    assert row["actual_value"] == 7
+    assert row["resolved_at"] is not None
+
+
+def test_resolve_props_games_won():
+    """resolve_props resolves games_won by parsing match score for winner and loser."""
+    from src.props.resolver import resolve_props
+
+    conn = _make_resolver_db()
+
+    # Insert match: winner_id=1001, loser_id=1002, score="6-3 7-5" -> (13, 8)
+    conn.execute("""
+        INSERT INTO matches (tourney_id, match_num, tour, winner_id, loser_id, score, tourney_date, match_type)
+        VALUES ('T002', 1, 'ATP', 1001, 1002, '6-3 7-5', '2024-02-10', 'completed')
+    """)
+
+    # Winner prediction (should get 13 games)
+    conn.execute("""
+        INSERT INTO prop_predictions
+        (tour, player_id, player_name, stat_type, match_date, mu, pmf_json, model_version, predicted_at)
+        VALUES ('ATP', 1001, 'Roger Federer', 'games_won', '2024-02-10', 12.0, '[0.1]', 'games_won_v1', '2024-02-09T00:00:00')
+    """)
+    # Loser prediction (should get 8 games)
+    conn.execute("""
+        INSERT INTO prop_predictions
+        (tour, player_id, player_name, stat_type, match_date, mu, pmf_json, model_version, predicted_at)
+        VALUES ('ATP', 1002, 'Rafael Nadal', 'games_won', '2024-02-10', 8.0, '[0.1]', 'games_won_v1', '2024-02-09T00:00:00')
+    """)
+    conn.commit()
+
+    result = resolve_props(conn)
+
+    assert result["resolved"] == 2
+    assert result["skipped"] == 0
+
+    winner_row = conn.execute(
+        "SELECT actual_value FROM prop_predictions WHERE player_id=1001 AND stat_type='games_won'"
+    ).fetchone()
+    loser_row = conn.execute(
+        "SELECT actual_value FROM prop_predictions WHERE player_id=1002 AND stat_type='games_won'"
+    ).fetchone()
+
+    assert winner_row["actual_value"] == 13
+    assert loser_row["actual_value"] == 8
+
+
+def test_resolve_props_skips_unmatched():
+    """resolve_props skips predictions where no matching match data exists."""
+    from src.props.resolver import resolve_props
+
+    conn = _make_resolver_db()
+
+    # Insert prediction with no corresponding match data
+    conn.execute("""
+        INSERT INTO prop_predictions
+        (tour, player_id, player_name, stat_type, match_date, mu, pmf_json, model_version, predicted_at)
+        VALUES ('ATP', 9999, 'Unknown Player', 'aces', '2024-03-01', 5.0, '[0.1]', 'aces_v1', '2024-03-01T00:00:00')
+    """)
+    conn.commit()
+
+    result = resolve_props(conn)
+
+    assert result["resolved"] == 0
+    assert result["skipped"] == 1
+
+    row = conn.execute("SELECT actual_value FROM prop_predictions WHERE player_id=9999").fetchone()
+    assert row["actual_value"] is None

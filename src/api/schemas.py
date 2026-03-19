@@ -218,6 +218,53 @@ class PropLineResponse(BaseModel):
     match_date: str
 
 
+class PropPredictionRow(BaseModel):
+    """Single prop prediction row joined with optional bookmaker line data."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    player_name: str
+    stat_type: str
+    match_date: str
+    mu: float
+    pmf: List[float]
+    model_version: str
+    actual_value: Optional[int] = None
+    resolved_at: Optional[str] = None
+    line_value: Optional[float] = None
+    direction: Optional[str] = None
+    p_hit: Optional[float] = None
+
+
+class PropsListResponse(BaseModel):
+    """Response for GET /props — real predictions when available."""
+    model_config = ConfigDict(from_attributes=True)
+
+    status: str
+    data: List[PropPredictionRow]
+
+
+class PropAccuracyBin(BaseModel):
+    """One calibration bin for P(hit) reliability diagram."""
+    model_config = ConfigDict(from_attributes=True)
+
+    predicted_p: float
+    actual_hit_rate: float
+    n: int
+
+
+class PropAccuracyResponse(BaseModel):
+    """Response for GET /props/accuracy — prop prediction performance metrics."""
+    model_config = ConfigDict(from_attributes=True)
+
+    status: str
+    overall_hit_rate: Optional[float] = None
+    hit_rate_by_stat: Dict[str, Optional[float]]
+    total_tracked: int
+    rolling_30d: List[Dict[str, Any]]
+    calibration_bins: List[PropAccuracyBin]
+
+
 # ---------------------------------------------------------------------------
 # Odds schemas
 # ---------------------------------------------------------------------------

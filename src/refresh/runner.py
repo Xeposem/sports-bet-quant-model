@@ -46,6 +46,8 @@ from src.ingestion.loader import ingest_all
 from src.ratings.glicko import compute_all_ratings
 from src.features.builder import build_all_features
 from src.sentiment.fetcher import fetch_all_articles
+from src.props.base import predict_and_store
+from src.props.resolver import resolve_props
 
 
 def refresh_all(
@@ -87,6 +89,8 @@ def refresh_all(
         "ratings": None,
         "sentiment": None,
         "features": None,
+        "props_predict": None,
+        "props_resolution": None,
     }
     any_error = False
 
@@ -165,6 +169,38 @@ def refresh_all(
     except Exception as exc:
         logger.error("refresh_all: features step failed: %s", exc, exc_info=True)
         steps["features"] = {"error": str(exc)}
+        any_error = True
+
+    # -------------------------------------------------------------------
+    # Step 5: Generate prop predictions
+    # -------------------------------------------------------------------
+    try:
+        conn = get_connection(db_path)
+        try:
+            result = predict_and_store(conn)
+            steps["props_predict"] = result
+            logger.info("refresh_all: props_predict completed -- %s", result)
+        finally:
+            conn.close()
+    except Exception as exc:
+        logger.error("refresh_all: props_predict step failed: %s", exc, exc_info=True)
+        steps["props_predict"] = {"error": str(exc)}
+        any_error = True
+
+    # -------------------------------------------------------------------
+    # Step 6: Resolve prop predictions against actual match results
+    # -------------------------------------------------------------------
+    try:
+        conn = get_connection(db_path)
+        try:
+            result = resolve_props(conn)
+            steps["props_resolution"] = result
+            logger.info("refresh_all: props_resolution completed -- %s", result)
+        finally:
+            conn.close()
+    except Exception as exc:
+        logger.error("refresh_all: props_resolution step failed: %s", exc, exc_info=True)
+        steps["props_resolution"] = {"error": str(exc)}
         any_error = True
 
     return {
