@@ -331,3 +331,28 @@ CREATE TABLE IF NOT EXISTS prop_lines (
     bookmaker       TEXT    NOT NULL DEFAULT 'prizepicks',
     entered_at      TEXT    NOT NULL
 );
+
+-- ---------------------------------------------------------------------------
+-- Prop Predictions: per-player, per-match PMF output from prop GLM models
+-- Populated by src/props/__main__.py predict subcommand
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS prop_predictions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    tour            TEXT    NOT NULL DEFAULT 'ATP',
+    player_id       INTEGER NOT NULL,
+    player_name     TEXT    NOT NULL,
+    stat_type       TEXT    NOT NULL,
+    tourney_id      TEXT,
+    match_num       INTEGER,
+    match_date      TEXT    NOT NULL,
+    mu              REAL    NOT NULL,
+    pmf_json        TEXT    NOT NULL,
+    model_version   TEXT    NOT NULL,
+    predicted_at    TEXT    NOT NULL,
+    actual_value    INTEGER,
+    resolved_at     TEXT,
+    UNIQUE (tour, player_id, stat_type, match_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_prop_predictions_date
+    ON prop_predictions(match_date, stat_type, tour);

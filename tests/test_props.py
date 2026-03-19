@@ -285,7 +285,6 @@ def _make_test_db_with_data(n_matches: int = 25):
     return conn
 
 
-@pytest.mark.skip("Implemented in Task 2")
 def test_aces_train_predict():
     """Test aces train() and predict() end-to-end with in-memory DB."""
     import src.props.aces as aces_mod
@@ -310,7 +309,6 @@ def test_aces_train_predict():
     assert abs(sum(pmf) - 1.0) < 0.01
 
 
-@pytest.mark.skip("Implemented in Task 2")
 def test_games_won_uses_score_parser():
     """Verify games_won._build_training_df filters out RET matches."""
     import src.props.games_won as gw_mod
@@ -325,12 +323,11 @@ def test_games_won_uses_score_parser():
     df = gw_mod._build_training_df(conn)
     # Retirement match should not appear in training data
     assert len(df) > 0
-    # All scores should be parseable (no RET)
+    # All scores should be parseable (no RET) — games_won column must be non-null
     for _, row in df.iterrows():
-        assert row["games"] is not None
+        assert row["games_won"] is not None
 
 
-@pytest.mark.skip("Implemented in Task 2")
 def test_schema_has_prop_predictions():
     """Verify prop_predictions table is created by init_db."""
     import tempfile
