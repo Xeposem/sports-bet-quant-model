@@ -145,7 +145,7 @@ Plans:
   1. The system produces a predicted distribution (mean and confidence interval) for aces, games won, and double faults per player per match
   2. User can enter a PrizePicks prop line (player, stat, over/under threshold) via the dashboard and see whether the model prediction shows value
   3. The dashboard displays prop prediction accuracy tracked over time as directional validation (model direction vs. actual outcome)
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 Plans:
 - [ ] 08-01-PLAN.md -- PROP_REGISTRY, score parser, base utilities, Poisson/NegBin stat models (aces, double_faults, games_won), CLI
 - [ ] 08-02-PLAN.md -- API endpoints (GET /props, GET /props/accuracy), prop resolver, refresh pipeline integration
@@ -177,5 +177,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 5. FastAPI Backend | 2/3 | In Progress|  |
 | 6. React Dashboard Core | 6/6 | Complete   | 2026-03-18 |
 | 7. Advanced Models & Ensemble | 4/4 | Complete   | 2026-03-18 |
-| 8. Player Props | 0/3 | Not started | - |
+| 8. Player Props | 1/3 | In Progress|  |
 | 9. Simulation, Signals & Paper Trading | 0/TBD | Not started | - |
