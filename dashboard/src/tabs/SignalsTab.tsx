@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { useSignals } from '../hooks/useSignals';
+import { useSignals, useUpdateSignalStatus } from '../hooks/useSignals';
+import { usePlacePaperBet, usePaperSession } from '../hooks/usePaperTrading';
 import { useRefreshAll } from '../hooks/useRefresh';
 import { SignalCard } from '../components/shared/SignalCard';
 import { EmptyState } from '../components/shared/EmptyState';
 import { SkeletonCard } from '../components/shared/SkeletonCard';
 import { FilterBar } from '../components/shared/FilterBar';
 import { toast } from 'sonner';
-import type { PredictionRow } from '../api/types';
+import type { SignalRecord } from '../api/types';
 
 type SortBy = 'ev' | 'date';
 
@@ -16,6 +17,11 @@ export function SignalsTab() {
     min_ev: 0,
   });
   const [sortBy, setSortBy] = useState<SortBy>('ev');
+  const [threshold, setThreshold] = useState<number>(() => {
+    const stored = localStorage.getItem('ev_threshold');
+    return stored ? parseFloat(stored) : 0;
+  });
+  const [dimMode, setDimMode] = useState<boolean>(true);
 
   const signals = useSignals({
     surface: filterParams.surface || undefined,
@@ -23,6 +29,11 @@ export function SignalsTab() {
   });
 
   const refresh = useRefreshAll();
+  const updateStatus = useUpdateSignalStatus();
+  const placeBet = usePlacePaperBet();
+  const paperSession = usePaperSession();
+
+  const paperSessionActive = !!(paperSession.data && paperSession.data.active === 1);
 
   const handleRefresh = () => {
     refresh.mutate(undefined, {
@@ -30,6 +41,32 @@ export function SignalsTab() {
         toast.error('Refresh failed — check the API server logs for details.');
       },
     });
+  };
+
+  const handleMarkActedOn = (signalId: number) => {
+    updateStatus.mutate(
+      { signalId, status: 'acted-on' },
+      {
+        onSuccess: () => toast('Signal marked as acted on'),
+        onError: () => toast.error('Failed to update signal status'),
+      }
+    );
+  };
+
+  const handlePlaceBet = (signalId: number, matchLabel: string, stake?: number | null) => {
+    placeBet.mutate(
+      { signal_id: signalId },
+      {
+        onSuccess: () =>
+          toast(`Bet placed -- ${stake != null ? `$${stake.toFixed(2)}` : ''} on match ${matchLabel}`),
+        onError: () => toast.error('Failed to place bet — check that a paper session is active'),
+      }
+    );
+  };
+
+  const handleThresholdChange = (val: number) => {
+    setThreshold(val);
+    localStorage.setItem('ev_threshold', String(val));
   };
 
   const filters = [
@@ -69,20 +106,44 @@ export function SignalsTab() {
     );
   }
 
-  const sortedSignals = (): PredictionRow[] => {
+  const sortedSignals = (): SignalRecord[] => {
     if (!signals.data?.data) return [];
     const data = [...signals.data.data];
     if (sortBy === 'ev') {
       return data.sort((a, b) => (b.ev_value ?? -Infinity) - (a.ev_value ?? -Infinity));
     }
     return data.sort(
-      (a, b) => new Date(b.predicted_at).getTime() - new Date(a.predicted_at).getTime()
+      (a, b) =>
+        new Date(b.predicted_at ?? b.created_at).getTime() -
+        new Date(a.predicted_at ?? a.created_at).getTime()
     );
   };
+
+  const allSignals = sortedSignals();
 
   return (
     <div>
       <FilterBar filters={filters} />
+      {/* EV Threshold Slider */}
+      <div className="px-6 pt-4 pb-2 flex items-center gap-4">
+        <span className="text-sm text-slate-400 whitespace-nowrap">Min EV: {threshold.toFixed(1)}%</span>
+        <input
+          type="range"
+          min={0}
+          max={20}
+          step={0.1}
+          value={threshold}
+          onChange={(e) => handleThresholdChange(parseFloat(e.target.value))}
+          className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-green-500"
+          aria-label="EV threshold slider"
+        />
+        <button
+          onClick={() => setDimMode((d) => !d)}
+          className="text-xs px-2 py-1 rounded border border-slate-600 text-slate-400 hover:bg-slate-700 whitespace-nowrap"
+        >
+          {dimMode ? 'Dim' : 'Hide'}
+        </button>
+      </div>
       <div className="p-6">
         {signals.isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -90,7 +151,7 @@ export function SignalsTab() {
               <SkeletonCard key={i} variant="signal" />
             ))}
           </div>
-        ) : sortedSignals().length === 0 ? (
+        ) : allSignals.length === 0 ? (
           <EmptyState
             heading="No active signals"
             body="No bets currently exceed the EV threshold. Click Refresh Data to fetch the latest predictions."
@@ -98,12 +159,27 @@ export function SignalsTab() {
           />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sortedSignals().map((signal, idx) => (
-              <SignalCard
-                key={`${signal.tourney_id}-${signal.match_num}-${signal.player_id}-${idx}`}
-                signal={signal}
-              />
-            ))}
+            {allSignals
+              .filter((signal) => {
+                const belowThreshold = (signal.ev_value ?? 0) < threshold;
+                if (belowThreshold && !dimMode) return false;
+                return true;
+              })
+              .map((signal, idx) => {
+                const belowThreshold = (signal.ev_value ?? 0) < threshold;
+                return (
+                  <SignalCard
+                    key={`${signal.id}-${idx}`}
+                    signal={signal}
+                    dimmed={belowThreshold && dimMode}
+                    paperSessionActive={paperSessionActive}
+                    onMarkActedOn={handleMarkActedOn}
+                    onPlaceBet={(id) =>
+                      handlePlaceBet(id, `${signal.tourney_id} #${signal.match_num}`, signal.kelly_stake)
+                    }
+                  />
+                );
+              })}
           </div>
         )}
       </div>
