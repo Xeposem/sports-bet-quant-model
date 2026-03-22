@@ -57,8 +57,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **BANK-01**: System calculates optimal bet size using fractional Kelly criterion (default 0.25x, configurable)
 - [x] **BANK-02**: System enforces configurable maximum bet size cap
-- [ ] **BANK-03**: System runs Monte Carlo bankroll simulations (1,000-10,000 seasons) showing P(ruin), expected terminal bankroll, confidence bands
-- [ ] **BANK-04**: System calculates Sharpe ratio for each betting strategy
+- [x] **BANK-03**: System runs Monte Carlo bankroll simulations (1,000-10,000 seasons) showing P(ruin), expected terminal bankroll, confidence bands
+- [x] **BANK-04**: System calculates Sharpe ratio for each betting strategy
 
 ### Backtesting
 
@@ -69,10 +69,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Signal Generation & Paper Trading
 
-- [ ] **SIG-01**: System generates automated signals when model EV exceeds configurable threshold
-- [ ] **SIG-02**: System supports paper trading with configurable starting bankroll (default $1,000)
-- [ ] **SIG-03**: System tracks paper trading P&L over time with full bet history
-- [ ] **SIG-04**: System displays active signals with model confidence, EV, and recommended Kelly stake
+- [x] **SIG-01**: System generates automated signals when model EV exceeds configurable threshold
+- [x] **SIG-02**: System supports paper trading with configurable starting bankroll (default $1,000)
+- [x] **SIG-03**: System tracks paper trading P&L over time with full bet history
+- [x] **SIG-04**: System displays active signals with model confidence, EV, and recommended Kelly stake
 
 ### Dashboard & API
 
@@ -82,7 +82,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **DASH-04**: React dashboard displays Monte Carlo bankroll simulation results
 - [x] **DASH-05**: React dashboard displays active betting signals with EV and stake recommendations
 - [x] **DASH-06**: React dashboard displays model comparison view (per-model accuracy, calibration, ROI)
-- [ ] **DASH-07**: React dashboard provides manual entry forms for bookmaker odds and PrizePicks prop lines
+- [x] **DASH-07**: React dashboard provides manual entry forms for bookmaker odds and PrizePicks prop lines
 - [x] **DASH-08**: FastAPI backend serves all model predictions, analytics, and historical data via REST API
 
 ## v2 Requirements
@@ -159,13 +159,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PROP-01 | Phase 8 | Complete |
 | PROP-02 | Phase 8 | Complete |
 | PROP-03 | Phase 8 | Complete |
-| BANK-03 | Phase 9 | Pending |
-| BANK-04 | Phase 9 | Pending |
-| SIG-01 | Phase 9 | Pending |
-| SIG-02 | Phase 9 | Pending |
-| SIG-03 | Phase 9 | Pending |
-| SIG-04 | Phase 9 | Pending |
-| DASH-07 | Phase 9 | Pending |
+| BANK-03 | Phase 9 | Complete |
+| BANK-04 | Phase 9 | Complete |
+| SIG-01 | Phase 9 | Complete |
+| SIG-02 | Phase 9 | Complete |
+| SIG-03 | Phase 9 | Complete |
+| SIG-04 | Phase 9 | Complete |
+| DASH-07 | Phase 9 | Complete |
 
 **Coverage:**
 - v1 requirements: 48 total

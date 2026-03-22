@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 08-03-PLAN.md
-last_updated: "2026-03-19T21:30:36.156Z"
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-03-22T09:30:29.678Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
   completed_phases: 8
-  total_plans: 28
-  completed_plans: 28
+  total_plans: 32
+  completed_plans: 29
   percent: 0
 ---
 
@@ -78,6 +78,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 07-advanced-models-ensemble PP04 | 4 | 2 tasks | 5 files |
 | Phase 08-player-props P01 | 572 | 3 tasks | 10 files |
 | Phase 08-player-props P02 | 6 | 2 tasks | 5 files |
+| Phase 09-simulation-signals-paper-trading P01 | 34 | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -162,6 +163,10 @@ Recent decisions affecting current work:
 - [Phase 08-player-props]: useSubmitPropLine handles POST response as PropLineResponse (id only), then refetches GET /props to find matching PropPrediction by id
 - [Phase 08-player-props]: PropLineResponse type added separately from PropPrediction -- POST returns minimal record, GET returns full prediction with pmf/p_hit
 - [Phase 08-player-props]: PmfChart slices pmf array to mu +/- 15 range to avoid rendering 50+ empty bars at chart edges
+- [Phase 09-simulation-signals-paper-trading]: simulation_results single-row overwrite pattern (DELETE + INSERT) — last run always accessible via GET /simulation/result
+- [Phase 09-simulation-signals-paper-trading]: signals INSERT OR IGNORE upsert from predictions on each GET /signals — idempotent, no duplicate signals
+- [Phase 09-simulation-signals-paper-trading]: kelly_stake in signals list uses $1,000 reference bankroll — context-independent sizing for display
+- [Phase 09-simulation-signals-paper-trading]: CORS allow_methods extended to PATCH and DELETE for paper trading and CRUD delete endpoints
 
 ### Pending Todos
 
@@ -176,6 +181,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T21:30:31.022Z
-Stopped at: Completed 08-03-PLAN.md
+Last session: 2026-03-22T09:30:29.672Z
+Stopped at: Completed 09-01-PLAN.md
 Resume file: None
