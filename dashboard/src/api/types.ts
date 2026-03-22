@@ -146,3 +146,78 @@ export interface PropAccuracyResponse {
   rolling_30d: Array<{ date: string; hit_rate: number }>;
   calibration_bins: PropAccuracyBin[];
 }
+
+// Monte Carlo simulation schemas (Phase 9)
+export interface PercentilePath {
+  step: number;
+  p5: number;
+  p25: number;
+  p50: number;
+  p75: number;
+  p95: number;
+}
+
+export interface MonteCarloRequest {
+  n_seasons: number;
+  initial_bankroll: number;
+  kelly_fraction: number;
+  ev_threshold: number;
+}
+
+export interface MonteCarloResult {
+  p_ruin: number;
+  expected_terminal: number;
+  sharpe_ratio: number;
+  paths: PercentilePath[];
+  terminal_distribution: number[];
+  n_seasons: number;
+  initial_bankroll: number;
+}
+
+// Manual entry CRUD types (Phase 9 — DASH-07)
+export interface OddsListRow {
+  tourney_id: string;
+  match_num: number;
+  tour: string;
+  bookmaker: string;
+  decimal_odds_a: number;
+  decimal_odds_b: number;
+  source: string;
+  imported_at: string;
+}
+
+export interface OddsListResponse {
+  data: OddsListRow[];
+}
+
+export interface PropLineListRow {
+  id: number;
+  player_name: string;
+  stat_type: string;
+  line_value: number;
+  direction: string;
+  match_date: string;
+  bookmaker: string;
+  entered_at: string;
+}
+
+export interface PropLinesListResponse {
+  data: PropLineListRow[];
+}
+
+export interface OddsEntry {
+  player_a: string;
+  player_b: string;
+  odds_a: number;
+  odds_b: number;
+  match_date: string;
+  bookmaker: string;
+}
+
+export interface OddsEntryResponse {
+  linked: boolean;
+  tourney_id: string | null;
+  match_num: number | null;
+  candidates: string[] | null;
+  message: string;
+}
