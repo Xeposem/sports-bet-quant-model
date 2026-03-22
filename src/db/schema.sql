@@ -356,3 +356,82 @@ CREATE TABLE IF NOT EXISTS prop_predictions (
 
 CREATE INDEX IF NOT EXISTS idx_prop_predictions_date
     ON prop_predictions(match_date, stat_type, tour);
+
+-- ---------------------------------------------------------------------------
+-- Signals: persisted prediction signals with user-facing status
+-- Populated by GET /signals upsert; status managed via PATCH /signals/{id}/status
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS signals (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    tour            TEXT    NOT NULL DEFAULT 'ATP',
+    tourney_id      TEXT    NOT NULL,
+    match_num       INTEGER NOT NULL,
+    player_id       INTEGER NOT NULL,
+    model_version   TEXT    NOT NULL,
+    status          TEXT    NOT NULL DEFAULT 'new',
+    created_at      TEXT    NOT NULL,
+    updated_at      TEXT    NOT NULL,
+    UNIQUE (tourney_id, match_num, tour, player_id, model_version),
+    FOREIGN KEY (tourney_id, match_num, tour) REFERENCES matches(tourney_id, match_num, tour)
+);
+
+CREATE INDEX IF NOT EXISTS idx_signals_status ON signals(status, tour);
+
+-- ---------------------------------------------------------------------------
+-- Paper Trading Sessions: single active session at a time
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS paper_sessions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    tour            TEXT    NOT NULL DEFAULT 'ATP',
+    initial_bankroll REAL   NOT NULL DEFAULT 1000.0,
+    current_bankroll REAL   NOT NULL DEFAULT 1000.0,
+    kelly_fraction  REAL    NOT NULL DEFAULT 0.25,
+    ev_threshold    REAL    NOT NULL DEFAULT 0.0,
+    started_at      TEXT    NOT NULL,
+    reset_at        TEXT,
+    active          INTEGER NOT NULL DEFAULT 1
+);
+
+-- ---------------------------------------------------------------------------
+-- Paper Bets: individual bets placed within a paper trading session
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS paper_bets (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id      INTEGER NOT NULL,
+    tour            TEXT    NOT NULL DEFAULT 'ATP',
+    tourney_id      TEXT    NOT NULL,
+    match_num       INTEGER NOT NULL,
+    player_id       INTEGER NOT NULL,
+    model_version   TEXT    NOT NULL,
+    calibrated_prob REAL    NOT NULL,
+    decimal_odds    REAL    NOT NULL,
+    ev_value        REAL    NOT NULL,
+    kelly_stake     REAL    NOT NULL,
+    bankroll_before REAL    NOT NULL,
+    bankroll_after  REAL,
+    outcome         INTEGER,
+    pnl             REAL,
+    placed_at       TEXT    NOT NULL,
+    resolved_at     TEXT,
+    result_source   TEXT,
+    FOREIGN KEY (session_id) REFERENCES paper_sessions(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_paper_bets_session ON paper_bets(session_id, placed_at);
+
+-- ---------------------------------------------------------------------------
+-- Simulation Results: last Monte Carlo simulation (overwritten on each run)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS simulation_results (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    n_seasons       INTEGER NOT NULL,
+    initial_bankroll REAL   NOT NULL,
+    kelly_fraction  REAL    NOT NULL,
+    ev_threshold    REAL    NOT NULL,
+    p_ruin          REAL    NOT NULL,
+    expected_terminal REAL  NOT NULL,
+    sharpe_ratio    REAL    NOT NULL,
+    paths_json      TEXT    NOT NULL,
+    terminal_json   TEXT    NOT NULL,
+    computed_at     TEXT    NOT NULL
+);
