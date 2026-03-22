@@ -161,7 +161,7 @@ Plans:
   3. The system automatically generates a signal when model EV exceeds a user-configured threshold -- signals appear in the dashboard without manual calculation
   4. User can start a paper trading session with a configurable bankroll (default $1,000) and see all bet history and running P&L
   5. User can enter PrizePicks prop lines and bookmaker odds via a unified manual entry form on the dashboard
-**Plans:** 1/4 plans executed
+**Plans:** 3/4 plans executed
 Plans:
 - [ ] 09-01-PLAN.md -- DB schema (signals, paper_sessions, paper_bets, simulation_results), Monte Carlo engine, Sharpe ratio, all API routers + tests
 - [ ] 09-02-PLAN.md -- Monte Carlo frontend: FanChart, HistogramChart, MonteCarloSection on OverviewTab
@@ -183,4 +183,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 6. React Dashboard Core | 6/6 | Complete   | 2026-03-18 |
 | 7. Advanced Models & Ensemble | 4/4 | Complete   | 2026-03-18 |
 | 8. Player Props | 3/3 | Complete   | 2026-03-19 |
-| 9. Simulation, Signals & Paper Trading | 1/4 | In Progress|  |
+| 9. Simulation, Signals & Paper Trading | 3/4 | In Progress|  |

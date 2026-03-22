@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-03-22T09:30:29.678Z"
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-03-22T09:36:54.119Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 9
   completed_phases: 8
   total_plans: 32
-  completed_plans: 29
+  completed_plans: 31
   percent: 0
 ---
 
@@ -79,6 +79,8 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 08-player-props P01 | 572 | 3 tasks | 10 files |
 | Phase 08-player-props P02 | 6 | 2 tasks | 5 files |
 | Phase 09-simulation-signals-paper-trading P01 | 34 | 3 tasks | 13 files |
+| Phase 09-simulation-signals-paper-trading P04 | 4 | 2 tasks | 6 files |
+| Phase 09-simulation-signals-paper-trading P02 | 15 | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -167,6 +169,10 @@ Recent decisions affecting current work:
 - [Phase 09-simulation-signals-paper-trading]: signals INSERT OR IGNORE upsert from predictions on each GET /signals — idempotent, no duplicate signals
 - [Phase 09-simulation-signals-paper-trading]: kelly_stake in signals list uses $1,000 reference bankroll — context-independent sizing for display
 - [Phase 09-simulation-signals-paper-trading]: CORS allow_methods extended to PATCH and DELETE for paper trading and CRUD delete endpoints
+- [Phase 09-simulation-signals-paper-trading]: @radix-ui/react-dialog installed manually (not via shadcn/ui CLI) — React 19 peer deps conflict; followed Phase 6 manual component creation pattern
+- [Phase 09-simulation-signals-paper-trading]: FAB approach chosen for ManualEntryModal trigger — accessible from any tab without modifying Header.tsx logic
+- [Phase 09-simulation-signals-paper-trading]: Synthetic UTCTimestamp: step * 86400 + baseTimestamp satisfies Lightweight Charts strictly-increasing time requirement for step-based Monte Carlo paths
+- [Phase 09-simulation-signals-paper-trading]: useRunSimulation.data takes precedence over useSimulationResult.data so fresh mutation results display immediately without cache round-trip
 
 ### Pending Todos
 
@@ -181,6 +187,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T09:30:29.672Z
-Stopped at: Completed 09-01-PLAN.md
+Last session: 2026-03-22T09:36:54.114Z
+Stopped at: Completed 09-02-PLAN.md
 Resume file: None
