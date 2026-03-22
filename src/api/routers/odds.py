@@ -24,7 +24,9 @@ from typing import Optional
 
 from fastapi import APIRouter, File, Request, UploadFile
 
-from src.api.schemas import OddsEntry, OddsEntryResponse, OddsUploadResponse
+from fastapi.responses import Response as FastAPIResponse
+
+from src.api.schemas import OddsEntry, OddsEntryResponse, OddsUploadResponse, OddsListResponse, OddsListRow
 from src.db.connection import get_connection
 from src.odds.ingester import import_csv_odds, upsert_match_odds
 from src.odds.linker import link_odds_to_matches
@@ -161,3 +163,71 @@ async def post_odds_upload(
     total = imported + skipped
 
     return OddsUploadResponse(imported=imported, skipped=skipped, total=total)
+
+
+# ---------------------------------------------------------------------------
+# GET /odds/list  —  list manually entered odds
+# ---------------------------------------------------------------------------
+
+@router.get("/list", response_model=OddsListResponse)
+async def get_odds_list(request: Request) -> OddsListResponse:
+    """Return all manually entered odds entries (source='manual')."""
+    db_path: str = request.app.state.db_path
+
+    def _sync_list() -> list:
+        conn = get_connection(db_path)
+        try:
+            rows = conn.execute(
+                """
+                SELECT tourney_id, match_num, tour, bookmaker,
+                       decimal_odds_a, decimal_odds_b, source, imported_at
+                FROM match_odds
+                WHERE source = 'manual'
+                ORDER BY imported_at DESC
+                """
+            ).fetchall()
+            return [dict(r) for r in rows]
+        finally:
+            conn.close()
+
+    loop = asyncio.get_event_loop()
+    data = await loop.run_in_executor(None, _sync_list)
+    return OddsListResponse(data=[OddsListRow(**r) for r in data])
+
+
+# ---------------------------------------------------------------------------
+# DELETE /odds/{tourney_id}/{match_num}  —  delete manually entered odds
+# ---------------------------------------------------------------------------
+
+@router.delete("/{tourney_id}/{match_num}", status_code=204)
+async def delete_odds_entry(
+    tourney_id: str,
+    match_num: int,
+    request: Request,
+) -> FastAPIResponse:
+    """Delete manually entered odds for a specific match."""
+    db_path: str = request.app.state.db_path
+
+    def _sync_delete() -> int:
+        conn = get_connection(db_path)
+        try:
+            cursor = conn.execute(
+                "DELETE FROM match_odds WHERE tourney_id = ? AND match_num = ? AND source = 'manual'",
+                (tourney_id, match_num),
+            )
+            conn.commit()
+            return cursor.rowcount
+        finally:
+            conn.close()
+
+    loop = asyncio.get_event_loop()
+    rows_affected = await loop.run_in_executor(None, _sync_delete)
+
+    if rows_affected == 0:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=404,
+            detail=f"No manual odds found for tourney_id={tourney_id}, match_num={match_num}",
+        )
+
+    return FastAPIResponse(status_code=204)

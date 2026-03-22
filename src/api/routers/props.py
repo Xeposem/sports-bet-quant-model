@@ -23,6 +23,8 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
 
+from fastapi.responses import Response as FastAPIResponse
+
 from src.api.schemas import (
     PropLineEntry,
     PropLineResponse,
@@ -30,6 +32,8 @@ from src.api.schemas import (
     PropAccuracyResponse,
     PropPredictionRow,
     PropsListResponse,
+    PropLineListRow,
+    PropLinesListResponse,
 )
 from src.props.base import p_over
 
@@ -288,3 +292,63 @@ async def post_prop_line(body: PropLineEntry, request: Request) -> PropLineRespo
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(None, _sync_insert)
     return PropLineResponse(**result)
+
+
+# ---------------------------------------------------------------------------
+# GET /props/lines  — list all prop lines
+# ---------------------------------------------------------------------------
+
+@router.get("/lines", response_model=PropLinesListResponse)
+async def get_prop_lines(request: Request) -> PropLinesListResponse:
+    """Return all manually entered prop lines."""
+    db_path: str = request.app.state.db_path
+
+    def _sync_list() -> list:
+        from src.db.connection import get_connection
+        conn = get_connection(db_path)
+        try:
+            rows = conn.execute(
+                """
+                SELECT id, player_name, stat_type, line_value, direction,
+                       match_date, bookmaker, entered_at
+                FROM prop_lines
+                ORDER BY entered_at DESC
+                """
+            ).fetchall()
+            return [dict(r) for r in rows]
+        finally:
+            conn.close()
+
+    loop = asyncio.get_event_loop()
+    data = await loop.run_in_executor(None, _sync_list)
+    return PropLinesListResponse(data=[PropLineListRow(**r) for r in data])
+
+
+# ---------------------------------------------------------------------------
+# DELETE /props/lines/{line_id}  — delete a prop line
+# ---------------------------------------------------------------------------
+
+@router.delete("/lines/{line_id}", status_code=204)
+async def delete_prop_line(line_id: int, request: Request) -> FastAPIResponse:
+    """Delete a prop line by ID."""
+    db_path: str = request.app.state.db_path
+
+    def _sync_delete() -> int:
+        from src.db.connection import get_connection
+        conn = get_connection(db_path)
+        try:
+            cursor = conn.execute(
+                "DELETE FROM prop_lines WHERE id = ?", (line_id,)
+            )
+            conn.commit()
+            return cursor.rowcount
+        finally:
+            conn.close()
+
+    loop = asyncio.get_event_loop()
+    rows_affected = await loop.run_in_executor(None, _sync_delete)
+
+    if rows_affected == 0:
+        raise HTTPException(status_code=404, detail=f"Prop line {line_id} not found.")
+
+    return FastAPIResponse(status_code=204)

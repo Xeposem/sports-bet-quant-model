@@ -98,7 +98,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Content-Type"],
 )
 
@@ -161,5 +161,13 @@ except (ImportError, AttributeError):
 try:
     from src.api.routers import refresh  # noqa: F401
     app.include_router(refresh.router, prefix="/api/v1")
+except (ImportError, AttributeError):
+    pass
+
+try:
+    from src.api.routers import simulation, signals, paper  # noqa: F401
+    app.include_router(simulation.router, prefix="/api/v1")
+    app.include_router(signals.router, prefix="/api/v1")
+    app.include_router(paper.router, prefix="/api/v1")
 except (ImportError, AttributeError):
     pass

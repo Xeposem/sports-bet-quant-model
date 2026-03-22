@@ -343,3 +343,192 @@ class BacktestRunRequest(BaseModel):
     ev_threshold: float = 0.0
     initial_bankroll: float = 1000.0
     model_version: str = "logistic_v1"
+
+
+# ---------------------------------------------------------------------------
+# Simulation schemas (Phase 9)
+# ---------------------------------------------------------------------------
+
+class MonteCarloRequest(BaseModel):
+    """Request body for POST /simulation/run."""
+    model_config = ConfigDict(from_attributes=True)
+    n_seasons: int = 1000
+    initial_bankroll: float = 1000.0
+    kelly_fraction: float = 0.25
+    ev_threshold: float = 0.0
+
+
+class PercentilePath(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    step: int
+    p5: float
+    p25: float
+    p50: float
+    p75: float
+    p95: float
+
+
+class MonteCarloResult(BaseModel):
+    """Response for GET /simulation/result and POST /simulation/run."""
+    model_config = ConfigDict(from_attributes=True)
+    p_ruin: float
+    expected_terminal: float
+    sharpe_ratio: float
+    paths: List[PercentilePath]
+    terminal_distribution: List[float]
+    n_seasons: int
+    initial_bankroll: float
+
+
+# ---------------------------------------------------------------------------
+# Signal schemas (Phase 9)
+# ---------------------------------------------------------------------------
+
+class SignalRecord(BaseModel):
+    """Signal row with prediction data and status."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    tourney_id: str
+    match_num: int
+    tour: str
+    player_id: int
+    model_version: str
+    status: str
+    calibrated_prob: Optional[float] = None
+    ev_value: Optional[float] = None
+    edge: Optional[float] = None
+    decimal_odds: Optional[float] = None
+    kelly_stake: Optional[float] = None
+    confidence: Optional[float] = None
+    sharpe: Optional[float] = None
+    predicted_at: Optional[str] = None
+    created_at: str
+
+
+class SignalsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    data: List[SignalRecord]
+
+
+class SignalStatusUpdate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    status: str  # "seen" | "acted-on"
+
+
+# ---------------------------------------------------------------------------
+# Paper Trading schemas (Phase 9)
+# ---------------------------------------------------------------------------
+
+class PaperSessionCreate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    initial_bankroll: float = 1000.0
+    kelly_fraction: float = 0.25
+    ev_threshold: float = 0.0
+
+
+class PaperSessionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    initial_bankroll: float
+    current_bankroll: float
+    kelly_fraction: float
+    ev_threshold: float
+    started_at: str
+    active: int
+    total_bets: int = 0
+    resolved_bets: int = 0
+    win_rate: Optional[float] = None
+    total_pnl: float = 0.0
+
+
+class PaperBetPlace(BaseModel):
+    """Request to place a paper bet from a signal."""
+    model_config = ConfigDict(from_attributes=True)
+    signal_id: int
+
+
+class PaperBetRow(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    session_id: int
+    tourney_id: str
+    match_num: int
+    player_id: int
+    model_version: str
+    calibrated_prob: float
+    decimal_odds: float
+    ev_value: float
+    kelly_stake: float
+    bankroll_before: float
+    bankroll_after: Optional[float] = None
+    outcome: Optional[int] = None
+    pnl: Optional[float] = None
+    placed_at: str
+    resolved_at: Optional[str] = None
+    result_source: Optional[str] = None
+
+
+class PaperBetsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    data: List[PaperBetRow]
+
+
+class PaperBetResolve(BaseModel):
+    """Manual resolution of a paper bet."""
+    model_config = ConfigDict(from_attributes=True)
+    outcome: int  # 1=won, 0=lost
+
+
+class PaperEquityPoint(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    date: str
+    bankroll: float
+
+
+class PaperEquityResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    initial: float
+    current: float
+    total_pnl: float
+    win_rate: Optional[float] = None
+    curve: List[PaperEquityPoint]
+
+
+# ---------------------------------------------------------------------------
+# Manual entry CRUD schemas (Phase 9 — DASH-07)
+# ---------------------------------------------------------------------------
+
+class OddsListRow(BaseModel):
+    """Row in the odds CRUD list."""
+    model_config = ConfigDict(from_attributes=True)
+    tourney_id: str
+    match_num: int
+    tour: str
+    bookmaker: str
+    decimal_odds_a: float
+    decimal_odds_b: float
+    source: str
+    imported_at: str
+
+
+class OddsListResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    data: List[OddsListRow]
+
+
+class PropLineListRow(BaseModel):
+    """Row in the prop lines CRUD list."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    player_name: str
+    stat_type: str
+    line_value: float
+    direction: str
+    match_date: str
+    bookmaker: str
+    entered_at: str
+
+
+class PropLinesListResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    data: List[PropLineListRow]
