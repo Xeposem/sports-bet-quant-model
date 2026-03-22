@@ -12,6 +12,7 @@ import { useBacktestBets } from '../hooks/useBacktest';
 import { useCalibration } from '../hooks/useCalibration';
 import { useSignals } from '../hooks/useSignals';
 import { useModels } from '../hooks/useModels';
+import { MonteCarloSection } from '@/components/shared/MonteCarloSection';
 
 function formatPercent(value: number | undefined | null): string {
   if (value == null) return '—';
@@ -171,18 +172,8 @@ export function OverviewTab() {
         </div>
       </div>
 
-      {/* DASH-04 Monte Carlo placeholder */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-base text-slate-100">Monte Carlo Simulation</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <EmptyState
-            heading="Simulation not yet available"
-            body="Monte Carlo bankroll simulation will be available after Phase 9."
-          />
-        </CardContent>
-      </Card>
+      {/* Monte Carlo simulation section */}
+      <MonteCarloSection />
     </div>
   );
 }
