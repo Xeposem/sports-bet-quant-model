@@ -221,3 +221,79 @@ export interface OddsEntryResponse {
   candidates: string[] | null;
   message: string;
 }
+
+// Signal schemas (Phase 9)
+export interface SignalRecord {
+  id: number;
+  tourney_id: string;
+  match_num: number;
+  tour: string;
+  player_id: number;
+  model_version: string;
+  status: 'new' | 'seen' | 'acted-on' | 'expired';
+  calibrated_prob: number | null;
+  ev_value: number | null;
+  edge: number | null;
+  decimal_odds: number | null;
+  kelly_stake: number | null;
+  confidence: number | null;
+  sharpe: number | null;
+  predicted_at: string | null;
+  created_at: string;
+}
+
+export interface SignalsResponse {
+  data: SignalRecord[];
+}
+
+// Paper Trading schemas (Phase 9)
+export interface PaperSession {
+  id: number;
+  initial_bankroll: number;
+  current_bankroll: number;
+  kelly_fraction: number;
+  ev_threshold: number;
+  started_at: string;
+  active: number;
+  total_bets: number;
+  resolved_bets: number;
+  win_rate: number | null;
+  total_pnl: number;
+}
+
+export interface PaperBet {
+  id: number;
+  session_id: number;
+  tourney_id: string;
+  match_num: number;
+  player_id: number;
+  model_version: string;
+  calibrated_prob: number;
+  decimal_odds: number;
+  ev_value: number;
+  kelly_stake: number;
+  bankroll_before: number;
+  bankroll_after: number | null;
+  outcome: number | null;
+  pnl: number | null;
+  placed_at: string;
+  resolved_at: string | null;
+  result_source: string | null;
+}
+
+export interface PaperBetsResponse {
+  data: PaperBet[];
+}
+
+export interface PaperEquityPoint {
+  date: string;
+  bankroll: number;
+}
+
+export interface PaperEquityResponse {
+  initial: number;
+  current: number;
+  total_pnl: number;
+  win_rate: number | null;
+  curve: PaperEquityPoint[];
+}
