@@ -147,6 +147,19 @@ export interface PropAccuracyResponse {
   calibration_bins: PropAccuracyBin[];
 }
 
+// Screenshot scan schemas (Phase 10)
+export interface PropScanCard {
+  player_name: string;
+  stat_type: 'aces' | 'games_won' | 'double_faults';
+  line_value: number;
+  directions: Array<'over' | 'under'>;
+}
+
+export interface PropScanResponse {
+  status: string;
+  cards: PropScanCard[];
+}
+
 // Monte Carlo simulation schemas (Phase 9)
 export interface PercentilePath {
   step: number;

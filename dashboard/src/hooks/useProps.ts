@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api/client';
-import type { PropsListResponse, PropLineEntry, PropLineResponse, PropAccuracyResponse } from '../api/types';
+import type { PropsListResponse, PropLineEntry, PropLineResponse, PropAccuracyResponse, PropScanResponse } from '../api/types';
 
 export function useProps() {
   return useQuery<PropsListResponse>({
@@ -22,6 +22,20 @@ export function useSubmitPropLine() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['props'] });
+    },
+  });
+}
+
+export function useScanPropScreenshot() {
+  return useMutation<PropScanResponse, Error, File>({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      // CRITICAL: Do NOT set Content-Type header — browser sets multipart boundary automatically
+      return apiFetch<PropScanResponse>('/props/scan', {
+        method: 'POST',
+        body: formData,
+      });
     },
   });
 }
