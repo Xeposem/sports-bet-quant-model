@@ -21,7 +21,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 
 from fastapi.responses import Response as FastAPIResponse
 
@@ -34,6 +34,7 @@ from src.api.schemas import (
     PropsListResponse,
     PropLineListRow,
     PropLinesListResponse,
+    PropScanResponse,
 )
 from src.props.base import p_over
 
@@ -210,6 +211,38 @@ async def get_props(request: Request) -> PropsListResponse:
     loop = asyncio.get_event_loop()
     data = await loop.run_in_executor(None, _sync_fetch)
     return PropsListResponse(status="ok", data=data)
+
+
+# ---------------------------------------------------------------------------
+# POST /props/scan  — PrizePicks screenshot OCR scan
+# Must be registered BEFORE POST "" to avoid routing conflicts
+# ---------------------------------------------------------------------------
+
+@router.post("/scan", response_model=PropScanResponse)
+async def scan_prop_screenshot(
+    file: UploadFile = File(...),
+    request: Request = None,
+) -> PropScanResponse:
+    """Accept PrizePicks screenshot, extract ATP prop cards via OCR."""
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=422, detail="File must be an image (JPEG, PNG, etc.)")
+
+    contents = await file.read()
+    db_path: str = request.app.state.db_path
+
+    def _run() -> dict:
+        from src.props.scanner import scan_image_bytes
+        return scan_image_bytes(contents, db_path)
+
+    try:
+        data = await asyncio.to_thread(_run)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    if data.get("status") == "tesseract_not_found":
+        raise HTTPException(status_code=503, detail="Tesseract OCR not installed on server")
+
+    return PropScanResponse(**data)
 
 
 # ---------------------------------------------------------------------------

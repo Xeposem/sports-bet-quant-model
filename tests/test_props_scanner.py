@@ -223,3 +223,63 @@ class TestScanImageBytes:
 
         assert result["status"] == "tesseract_not_found"
         assert result["cards"] == []
+
+
+# ---------------------------------------------------------------------------
+# Integration test: POST /props/scan endpoint (Task 2)
+# ---------------------------------------------------------------------------
+
+class TestScanEndpoint:
+    """Integration tests for POST /api/v1/props/scan endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_scan_endpoint_returns_cards(self, async_client):
+        """POST /props/scan with a valid image returns 200 and cards list."""
+        import cv2
+        import numpy as np
+
+        # Create a valid 50x50 white PNG
+        img = np.full((50, 50, 3), 255, dtype=np.uint8)
+        success, buf = cv2.imencode(".png", img)
+        assert success
+        png_bytes = buf.tobytes()
+
+        # Mock scan_image_bytes to return one card without touching Tesseract
+        mock_result = {
+            "status": "ok",
+            "cards": [
+                {
+                    "player_name": "Test Player",
+                    "stat_type": "aces",
+                    "line_value": 5.5,
+                    "directions": ["over"],
+                }
+            ],
+        }
+        with patch("src.props.scanner.scan_image_bytes", return_value=mock_result):
+            response = await async_client.post(
+                "/api/v1/props/scan",
+                files={"file": ("screenshot.png", png_bytes, "image/png")},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert len(data["cards"]) == 1
+        assert data["cards"][0]["player_name"] == "Test Player"
+        assert data["cards"][0]["stat_type"] == "aces"
+        assert data["cards"][0]["line_value"] == 5.5
+        assert data["cards"][0]["directions"] == ["over"]
+
+    @pytest.mark.asyncio
+    async def test_scan_endpoint_rejects_non_image(self, async_client):
+        """POST /props/scan with non-image content_type returns 422."""
+        response = await async_client.post(
+            "/api/v1/props/scan",
+            files={"file": ("data.txt", b"hello world", "text/plain")},
+        )
+        assert response.status_code == 422
+        body = response.json()
+        # App uses custom error format: {"error": ..., "message": ...}
+        error_text = body.get("detail", "") or body.get("message", "")
+        assert "image" in error_text.lower()
