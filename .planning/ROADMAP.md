@@ -19,7 +19,7 @@ This project builds a quantitative ATP tennis prediction platform from the data 
 - [x] **Phase 7: Advanced Models & Ensemble** - GBM and Bayesian models added; multi-model ensemble replaces single baseline (completed 2026-03-18)
 - [x] **Phase 8: Player Props** - Poisson/NegBin prop prediction models, manual PrizePicks line entry, PMF visualization, and accuracy tracking (completed 2026-03-19)
 - [x] **Phase 9: Simulation, Signals & Paper Trading** - Monte Carlo simulation, automated signal generation, and live paper trading (completed 2026-03-22)
-- [ ] **Phase 10: PrizePicks Screenshot CV Tool** - CV-powered screenshot scanner for batch ATP prop extraction via OCR
+- [x] **Phase 10: PrizePicks Screenshot CV Tool** - CV-powered screenshot scanner for batch ATP prop extraction via OCR (completed 2026-03-23)
 
 ## Phase Details
 
@@ -179,7 +179,7 @@ Plans:
   3. Non-ATP players are silently filtered out via fuzzy matching against the players database
   4. Extracted props appear in a preview table with checkboxes for user review before submission
   5. User can bulk-submit selected props via the existing POST /props endpoint
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 10-01-PLAN.md -- Backend OCR scanner module, Pydantic schemas, POST /props/scan endpoint, unit tests
@@ -201,4 +201,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 7. Advanced Models & Ensemble | 4/4 | Complete   | 2026-03-18 |
 | 8. Player Props | 3/3 | Complete   | 2026-03-19 |
 | 9. Simulation, Signals & Paper Trading | 4/4 | Complete   | 2026-03-22 |
-| 10. PrizePicks Screenshot CV Tool | 1/2 | In Progress|  |
+| 10. PrizePicks Screenshot CV Tool | 2/2 | Complete   | 2026-03-23 |

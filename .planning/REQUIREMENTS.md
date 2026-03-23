@@ -89,8 +89,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **SCAN-01**: System accepts PrizePicks screenshot via file upload or clipboard paste, extracts player names, stat types, and line values using OCR
 - [x] **SCAN-02**: System fuzzy-matches extracted player names against ATP players database and silently skips non-ATP players
-- [ ] **SCAN-03**: System presents extracted props in a preview table with checkboxes for user review before bulk submission
-- [ ] **SCAN-04**: System bulk-submits selected scanned props via the existing POST /props endpoint
+- [x] **SCAN-03**: System presents extracted props in a preview table with checkboxes for user review before bulk submission
+- [x] **SCAN-04**: System bulk-submits selected scanned props via the existing POST /props endpoint
 
 ## v2 Requirements
 
