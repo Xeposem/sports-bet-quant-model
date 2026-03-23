@@ -2,7 +2,7 @@
 
 # Data files (downloaded CSVs and SQLite DB)
 data/raw/
-data/*.db
+data/*.db*
 *.db
 
 # Python

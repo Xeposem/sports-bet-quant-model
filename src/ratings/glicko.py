@@ -24,6 +24,7 @@ import logging
 from datetime import date, timedelta
 
 from glicko2 import Player  # type: ignore
+from tqdm import tqdm
 
 from src.ratings.decay import apply_decay_if_needed, SURFACE_THRESHOLDS
 from src.ratings.seeder import seed_rating_from_rank
@@ -328,6 +329,9 @@ def _process_week(
         winner_id = match["winner_id"]
         loser_id = match["loser_id"]
         surface = match["surface"] or "Hard"
+        # Map discontinued surfaces to nearest equivalent
+        if surface not in ("Hard", "Clay", "Grass"):
+            surface = "Hard"  # Carpet (pre-2009) maps to Hard
         tourney_level = match["tourney_level"] or "A"
         retirement_flag = match["retirement_flag"] or 0
 
@@ -496,7 +500,8 @@ def compute_all_ratings(conn) -> dict:
     total_snapshots = 0
 
     # Process weeks in chronological order
-    for week_key in sorted(weeks.keys()):
+    sorted_weeks = sorted(weeks.keys())
+    for week_key in tqdm(sorted_weeks, desc="Rating weeks", unit="wk"):
         iso_year, iso_week = week_key
         week_matches = weeks[week_key]
         as_of_date = _get_week_end_date(iso_year, iso_week)

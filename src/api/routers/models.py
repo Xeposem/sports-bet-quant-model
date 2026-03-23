@@ -51,24 +51,36 @@ async def get_models(db: DbDep) -> ModelsResponse:
     if not all_versions:
         return ModelsResponse(data=[])
 
-    # Aggregate backtest stats per model
-    bt_sql = text(
+    # Aggregate backtest stats per model (Kelly bets where kelly_bet > 0)
+    bt_kelly_sql = text(
         """
         SELECT
             model_version,
-            COUNT(*)        AS n_bets,
             SUM(pnl_kelly)  AS sum_pnl_kelly,
-            SUM(kelly_bet)  AS sum_kelly_bet,
-            SUM(pnl_flat)   AS sum_pnl_flat,
-            SUM(flat_bet)   AS sum_flat_bet
+            SUM(kelly_bet)  AS sum_kelly_bet
         FROM backtest_results
         WHERE kelly_bet > 0
         GROUP BY model_version
         """
     )
-    bt_rows = {row["model_version"]: row for row in (await db.execute(bt_sql)).mappings().all()}
+    bt_kelly_rows = {row["model_version"]: row for row in (await db.execute(bt_kelly_sql)).mappings().all()}
 
-    # Aggregate prediction quality metrics per model
+    # Aggregate flat stats (flat_bet > 0 even without odds data)
+    bt_flat_sql = text(
+        """
+        SELECT
+            model_version,
+            COUNT(*)        AS n_bets,
+            SUM(pnl_flat)   AS sum_pnl_flat,
+            SUM(flat_bet)   AS sum_flat_bet
+        FROM backtest_results
+        WHERE flat_bet > 0
+        GROUP BY model_version
+        """
+    )
+    bt_flat_rows = {row["model_version"]: row for row in (await db.execute(bt_flat_sql)).mappings().all()}
+
+    # Aggregate prediction quality metrics per model (prefer predictions table)
     pred_sql = text(
         """
         SELECT
@@ -81,20 +93,40 @@ async def get_models(db: DbDep) -> ModelsResponse:
     )
     pred_rows = {row["model_version"]: row for row in (await db.execute(pred_sql)).mappings().all()}
 
+    # Fallback: derive brier / log_loss from backtest_results when predictions is empty
+    if not pred_rows:
+        bt_quality_sql = text(
+            """
+            SELECT
+                model_version,
+                AVG((calibrated_prob - outcome) * (calibrated_prob - outcome)) AS avg_brier,
+                AVG(
+                    CASE
+                        WHEN outcome = 1 THEN -ln(MAX(calibrated_prob, 1e-15))
+                        ELSE -ln(MAX(1.0 - calibrated_prob, 1e-15))
+                    END
+                ) AS avg_log_loss
+            FROM backtest_results
+            GROUP BY model_version
+            """
+        )
+        pred_rows = {row["model_version"]: row for row in (await db.execute(bt_quality_sql)).mappings().all()}
+
     data: List[ModelMetrics] = []
     for mv in all_versions:
-        bt = bt_rows.get(mv)
+        bk = bt_kelly_rows.get(mv)
+        bf = bt_flat_rows.get(mv)
         pr = pred_rows.get(mv)
 
-        n_bets = int(bt["n_bets"]) if bt else 0
+        n_bets = int(bf["n_bets"]) if bf else 0
 
-        kelly_stake = (bt["sum_kelly_bet"] or 0.0) if bt else 0.0
-        flat_stake = (bt["sum_flat_bet"] or 0.0) if bt else 0.0
+        kelly_stake = (bk["sum_kelly_bet"] or 0.0) if bk else 0.0
+        flat_stake = (bf["sum_flat_bet"] or 0.0) if bf else 0.0
         kelly_roi = (
-            ((bt["sum_pnl_kelly"] or 0.0) / kelly_stake) if kelly_stake else None
+            ((bk["sum_pnl_kelly"] or 0.0) / kelly_stake) if kelly_stake else None
         )
         flat_roi = (
-            ((bt["sum_pnl_flat"] or 0.0) / flat_stake) if flat_stake else None
+            ((bf["sum_pnl_flat"] or 0.0) / flat_stake) if flat_stake else None
         )
 
         brier = pr["avg_brier"] if pr else None

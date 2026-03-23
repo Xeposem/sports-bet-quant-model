@@ -14,12 +14,16 @@ Exports:
 
 from __future__ import annotations
 
+import threading
 import uuid
 from datetime import datetime
 from typing import Optional
 
 # Module-level state store. All running/completed job states live here.
 job_states: dict[str, dict] = {}
+
+# Cancellation events keyed by job_id.
+_cancel_events: dict[str, threading.Event] = {}
 
 
 def create_job(job_type: str) -> str:
@@ -38,6 +42,7 @@ def create_job(job_type: str) -> str:
         "step": "starting",
         "started_at": datetime.utcnow().isoformat(),
     }
+    _cancel_events[job_id] = threading.Event()
     return job_id
 
 
@@ -66,3 +71,18 @@ def get_job(job_id: str) -> Optional[dict]:
         dict with job state fields, or None if not found.
     """
     return job_states.get(job_id)
+
+
+def cancel_job(job_id: str) -> bool:
+    """Signal a job to cancel. Returns True if the job was found and signalled."""
+    evt = _cancel_events.get(job_id)
+    if evt is None:
+        return False
+    evt.set()
+    return True
+
+
+def is_cancelled(job_id: str) -> bool:
+    """Check whether a job has been signalled to cancel."""
+    evt = _cancel_events.get(job_id)
+    return evt is not None and evt.is_set()

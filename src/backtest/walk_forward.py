@@ -680,7 +680,7 @@ def run_fold(
     try:
         model, _metrics = _train_model_for_fold(
             model_version, split["X_train"], split["y_train"],
-            split["X_val"], split["y_val"], split["w_train"], fold_config,
+            split["X_val"], split["y_val"], split["w_train"], config,
             conn=conn, train_end=train_end,
         )
     except Exception as exc:

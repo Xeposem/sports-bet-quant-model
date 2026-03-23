@@ -48,8 +48,8 @@ def _build_training_df(conn) -> pd.DataFrame:
             m.match_num,
             m.tour,
             m.score,
-            m.surface,
-            m.tourney_level,
+            t.surface,
+            t.tourney_level,
             -- Winner features
             mf_w.avg_ace_rate   AS w_avg_ace_rate,
             -- Loser features
@@ -61,6 +61,9 @@ def _build_training_df(conn) -> pd.DataFrame:
             CAST(COALESCE(ms_w.first_won, 0) + COALESCE(ms_w.second_won, 0) AS REAL)
                 / NULLIF(CAST(ms_w.svpt AS REAL), 0) AS l_opp_rtn_pct
         FROM matches m
+        JOIN tournaments t
+          ON  t.tourney_id = m.tourney_id
+          AND t.tour       = m.tour
         JOIN match_features mf_w
           ON  mf_w.tourney_id  = m.tourney_id
           AND mf_w.match_num   = m.match_num

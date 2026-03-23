@@ -1,0 +1,7 @@
+{
+  "calibration_method": "isotonic",
+  "val_brier_score": 0.2182324554370365,
+  "val_log_loss": 0.625514644001205,
+  "brier_sigmoid": 0.2187609928773414,
+  "brier_isotonic": 0.2182324554370365
+}

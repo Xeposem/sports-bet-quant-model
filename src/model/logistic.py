@@ -128,27 +128,44 @@ def train_and_calibrate(
         brier_sigmoid: Brier score of the sigmoid calibrator
         brier_isotonic: Brier score of the isotonic calibrator
     """
-    # Step 1: Train base pipeline (scaler + logistic regression) on training set
+    # Step 1: Augment training data with flipped rows for both-class representation.
+    # X = winner - loser with y=1; flipped: X' = -(X) with y=0, swapping
+    # has_no_elo_w <-> has_no_elo_l since winner/loser perspectives reverse.
+    X_flip = -X_train.copy()
+    idx_w = LOGISTIC_FEATURES.index("has_no_elo_w")
+    idx_l = LOGISTIC_FEATURES.index("has_no_elo_l")
+    X_flip[:, [idx_w, idx_l]] = X_train[:, [idx_l, idx_w]]
+    X_aug = np.vstack([X_train, X_flip])
+    y_aug = np.concatenate([y_train, np.zeros(len(y_train))])
+    w_aug = np.concatenate([weights_train, weights_train])
+
+    # Step 2: Train base pipeline (scaler + logistic regression) on augmented set
     pipeline = Pipeline([
         ("scaler", StandardScaler()),
         ("clf", LogisticRegression(max_iter=1000, C=1.0)),
     ])
-    pipeline.fit(X_train, y_train, clf__sample_weight=weights_train)
+    pipeline.fit(X_aug, y_aug, clf__sample_weight=w_aug)
 
-    # Step 2: Freeze pipeline so calibrators train their own isotonic/sigmoid
+    # Step 3: Augment validation set the same way for calibration fitting
+    X_val_flip = -X_val.copy()
+    X_val_flip[:, [idx_w, idx_l]] = X_val[:, [idx_l, idx_w]]
+    X_val_aug = np.vstack([X_val, X_val_flip])
+    y_val_aug = np.concatenate([y_val, np.zeros(len(y_val))])
+
+    # Step 4: Freeze pipeline so calibrators train their own isotonic/sigmoid
     # mapping on the validation set without re-training the base model.
     # Use CalibratedClassifierCV(FrozenEstimator(pipeline)) — the preferred API
     # in sklearn >= 1.6 (cv='prefit' is deprecated as of 1.6, removed in 1.8).
 
     # Sigmoid (Platt scaling)
     cal_sigmoid = CalibratedClassifierCV(FrozenEstimator(pipeline), method="sigmoid")
-    cal_sigmoid.fit(X_val, y_val)
+    cal_sigmoid.fit(X_val_aug, y_val_aug)
     proba_sigmoid = cal_sigmoid.predict_proba(X_val)[:, 1]
     brier_sig = float(brier_score_loss(y_val, proba_sigmoid))
 
     # Isotonic regression
     cal_isotonic = CalibratedClassifierCV(FrozenEstimator(pipeline), method="isotonic")
-    cal_isotonic.fit(X_val, y_val)
+    cal_isotonic.fit(X_val_aug, y_val_aug)
     proba_isotonic = cal_isotonic.predict_proba(X_val)[:, 1]
     brier_iso = float(brier_score_loss(y_val, proba_isotonic))
 
@@ -164,7 +181,7 @@ def train_and_calibrate(
         best_brier = brier_sig
         best_proba = proba_sigmoid
 
-    best_logloss = float(log_loss(y_val, best_proba))
+    best_logloss = float(log_loss(y_val, best_proba, labels=[0, 1]))
 
     metrics = {
         "calibration_method": best_method,

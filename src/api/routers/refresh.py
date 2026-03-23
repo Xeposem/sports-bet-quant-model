@@ -29,14 +29,26 @@ router = APIRouter(prefix="/refresh", tags=["refresh"])
 # Sync wrapper — runs in thread pool
 # ---------------------------------------------------------------------------
 
+class _Cancelled(Exception):
+    """Raised when a refresh job is cancelled between steps."""
+
+
 def _run_refresh(job_id: str, db_path: str) -> None:
     """Execute the full pipeline refresh synchronously in a background thread."""
-    from src.api.jobs import update_job
+    from src.api.jobs import is_cancelled, update_job
+
+    def on_step(step: str) -> None:
+        if is_cancelled(job_id):
+            raise _Cancelled()
+        update_job(job_id, step=step)
 
     try:
         update_job(job_id, step="ingest")
-        result = refresh_all(db_path)
+        result = refresh_all(db_path, on_step=on_step)
         update_job(job_id, status="complete", step="done", result=result)
+    except _Cancelled:
+        logger.info("Refresh job %s cancelled by user", job_id)
+        update_job(job_id, status="cancelled", step="cancelled")
     except Exception as exc:
         logger.error("Refresh job %s failed: %s", job_id, exc, exc_info=True)
         update_job(job_id, status="failed", error=str(exc))
@@ -97,3 +109,22 @@ async def get_refresh_status(job_id: Optional[str] = None) -> RefreshStatusRespo
         started_at=job.get("started_at"),
         result=job.get("result"),
     )
+
+
+# ---------------------------------------------------------------------------
+# POST /refresh/cancel  — cancel a running refresh job
+# ---------------------------------------------------------------------------
+
+@router.post("/cancel")
+async def post_refresh_cancel(job_id: str) -> dict:
+    """Cancel a running refresh job. The current step finishes, then stops."""
+    from src.api.jobs import cancel_job, get_job
+
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+    if job.get("status") != "running":
+        return {"job_id": job_id, "status": job.get("status"), "message": "Job is not running"}
+
+    cancel_job(job_id)
+    return {"job_id": job_id, "status": "cancelling"}

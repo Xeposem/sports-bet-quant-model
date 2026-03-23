@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import logging
 
+from tqdm import tqdm
+
 logger = logging.getLogger(__name__)
 
 # Lazy imports to avoid circular dependencies and heavy load at module level
@@ -54,6 +56,7 @@ def refresh_all(
     db_path: str,
     raw_dir: str = "data/raw",
     fetch_articles: bool = True,
+    on_step: "Callable[[str], None] | None" = None,
 ) -> dict:
     """
     Run the complete pipeline refresh: ingest -> ratings -> sentiment -> features.
@@ -94,9 +97,18 @@ def refresh_all(
     }
     any_error = False
 
+    def _notify(step: str) -> None:
+        if on_step is not None:
+            on_step(step)
+
+    step_names = ["ingest", "ratings", "sentiment", "features", "props_predict", "props_resolution"]
+    pbar = tqdm(total=len(step_names), desc="Pipeline", unit="step", bar_format="{desc}: {n_fmt}/{total_fmt} steps |{bar}| {elapsed}")
+
     # -------------------------------------------------------------------
     # Step 1: Ingest new match data
     # -------------------------------------------------------------------
+    pbar.set_postfix_str("ingesting matches")
+    _notify("ingest")
     try:
         result = ingest_all(db_path, raw_dir)
         steps["ingest"] = result
@@ -105,10 +117,13 @@ def refresh_all(
         logger.error("refresh_all: ingest step failed: %s", exc, exc_info=True)
         steps["ingest"] = {"error": str(exc)}
         any_error = True
+    pbar.update(1)
 
     # -------------------------------------------------------------------
     # Step 2: Compute/update Glicko-2 ratings
     # -------------------------------------------------------------------
+    pbar.set_postfix_str("computing ratings")
+    _notify("ratings")
     try:
         conn = get_connection(db_path)
         try:
@@ -121,10 +136,13 @@ def refresh_all(
         logger.error("refresh_all: ratings step failed: %s", exc, exc_info=True)
         steps["ratings"] = {"error": str(exc)}
         any_error = True
+    pbar.update(1)
 
     # -------------------------------------------------------------------
     # Step 3: Sentiment — fetch and score articles
     # -------------------------------------------------------------------
+    pbar.set_postfix_str("scoring sentiment")
+    _notify("sentiment")
     if fetch_articles:
         try:
             from src.sentiment.store import store_article, store_sentiment_score
@@ -154,10 +172,13 @@ def refresh_all(
             any_error = True
     else:
         steps["sentiment"] = {"skipped": True}
+    pbar.update(1)
 
     # -------------------------------------------------------------------
     # Step 4: Rebuild feature matrix
     # -------------------------------------------------------------------
+    pbar.set_postfix_str("building features")
+    _notify("features")
     try:
         conn = get_connection(db_path)
         try:
@@ -170,10 +191,13 @@ def refresh_all(
         logger.error("refresh_all: features step failed: %s", exc, exc_info=True)
         steps["features"] = {"error": str(exc)}
         any_error = True
+    pbar.update(1)
 
     # -------------------------------------------------------------------
     # Step 5: Generate prop predictions
     # -------------------------------------------------------------------
+    pbar.set_postfix_str("predicting props")
+    _notify("props_predict")
     try:
         conn = get_connection(db_path)
         try:
@@ -186,10 +210,13 @@ def refresh_all(
         logger.error("refresh_all: props_predict step failed: %s", exc, exc_info=True)
         steps["props_predict"] = {"error": str(exc)}
         any_error = True
+    pbar.update(1)
 
     # -------------------------------------------------------------------
     # Step 6: Resolve prop predictions against actual match results
     # -------------------------------------------------------------------
+    pbar.set_postfix_str("resolving props")
+    _notify("props_resolution")
     try:
         conn = get_connection(db_path)
         try:
@@ -202,6 +229,9 @@ def refresh_all(
         logger.error("refresh_all: props_resolution step failed: %s", exc, exc_info=True)
         steps["props_resolution"] = {"error": str(exc)}
         any_error = True
+    pbar.update(1)
+    pbar.set_postfix_str("done")
+    pbar.close()
 
     return {
         "steps": steps,

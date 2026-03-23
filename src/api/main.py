@@ -92,7 +92,7 @@ _cors_env = os.environ.get("CORS_ORIGINS", "")
 if _cors_env:
     _allowed_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
 else:
-    _allowed_origins = ["http://localhost:3000", "http://localhost:5173"]
+    _allowed_origins = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -155,19 +155,20 @@ app.include_router(props.router, prefix="/api/v1")
 try:
     from src.api.routers import odds  # noqa: F401
     app.include_router(odds.router, prefix="/api/v1")
-except (ImportError, AttributeError):
-    pass
+except Exception as exc:
+    logger.warning("Failed to load odds router: %s", exc)
 
 try:
     from src.api.routers import refresh  # noqa: F401
     app.include_router(refresh.router, prefix="/api/v1")
-except (ImportError, AttributeError):
-    pass
+except Exception as exc:
+    import traceback; traceback.print_exc()
+    logger.warning("Failed to load refresh router: %s", exc)
 
 try:
     from src.api.routers import simulation, signals, paper  # noqa: F401
     app.include_router(simulation.router, prefix="/api/v1")
     app.include_router(signals.router, prefix="/api/v1")
     app.include_router(paper.router, prefix="/api/v1")
-except (ImportError, AttributeError):
-    pass
+except Exception as exc:
+    logger.warning("Failed to load simulation/signals/paper routers: %s", exc)

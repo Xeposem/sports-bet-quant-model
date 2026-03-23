@@ -1,17 +1,12 @@
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
 import { useRefreshAll } from '../../hooks/useRefresh';
 
 export function Header() {
   const refresh = useRefreshAll();
 
   const handleRefresh = () => {
-    refresh.mutate(undefined, {
-      onError: () => {
-        toast.error('Refresh failed — check the API server logs for details.');
-      },
-    });
+    refresh.mutate();
   };
 
   return (

@@ -209,8 +209,8 @@ def predict_and_store(
                 ms.tour,
                 ms.player_role,
                 m.tourney_date  AS match_date,
-                m.surface,
-                m.tourney_level,
+                t.surface,
+                t.tourney_level,
                 CASE ms.player_role WHEN 'winner' THEN m.winner_id ELSE m.loser_id END AS player_id,
                 mf.avg_ace_rate,
                 mf.avg_df_rate,
@@ -222,6 +222,9 @@ def predict_and_store(
               ON  ms.tourney_id = m.tourney_id
               AND ms.match_num  = m.match_num
               AND ms.tour       = m.tour
+            JOIN tournaments t
+              ON  t.tourney_id  = m.tourney_id
+              AND t.tour        = m.tour
             JOIN match_features mf
               ON  mf.tourney_id   = ms.tourney_id
               AND mf.match_num    = ms.match_num

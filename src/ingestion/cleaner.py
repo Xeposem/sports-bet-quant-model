@@ -116,10 +116,10 @@ def normalize_retirement_stats(row: pd.Series) -> pd.Series:
     best_of = row.get("best_of")
     expected_sv_games = _EXPECTED_SV_GAMES.get(best_of, 12)
 
-    w_sv = row.get("w_SvGms") or 0
-    l_sv = row.get("l_SvGms") or 0
-    played_sv_games = (w_sv if w_sv and not _is_na(w_sv) else 0) + \
-                      (l_sv if l_sv and not _is_na(l_sv) else 0)
+    w_sv = row.get("w_SvGms")
+    l_sv = row.get("l_SvGms")
+    played_sv_games = (0 if _is_na(w_sv) else int(w_sv)) + \
+                      (0 if _is_na(l_sv) else int(l_sv))
 
     if played_sv_games == 0:
         return row  # Cannot normalize — no serve game data
