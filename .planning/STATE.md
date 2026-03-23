@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: "Checkpoint: 10-02 Task 3 human-verify"
-last_updated: "2026-03-23T08:19:58.705Z"
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-03-23T09:07:04.377Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 10
@@ -84,6 +84,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 09-simulation-signals-paper-trading P03 | 448 | 3 tasks | 10 files |
 | Phase 10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction P01 | 575 | 2 tasks | 5 files |
 | Phase 10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction P02 | 7 | 2 tasks | 6 files |
+| Phase 10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction P02 | 7 | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -182,6 +183,8 @@ Recent decisions affecting current work:
 - [Phase 10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction]: POST /scan registered before POST '' in props.py router to avoid FastAPI routing conflict
 - [Phase 10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction]: useScanPropScreenshot does NOT set Content-Type header — browser sets multipart boundary automatically for FormData
 - [Phase 10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction]: PropScanPreview expands card.directions into individual ScanRow entries (one per direction) for independent deselect
+- [Phase 10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction]: useScanPropScreenshot does NOT set Content-Type header — browser must set multipart boundary automatically for FormData
+- [Phase 10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction]: PropScanPreview expands card.directions into individual ScanRow entries (one per direction) for independent deselect
 
 ### Roadmap Evolution
 
@@ -200,6 +203,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T08:19:58.698Z
-Stopped at: Checkpoint: 10-02 Task 3 human-verify
+Last session: 2026-03-23T09:07:04.372Z
+Stopped at: Completed 10-02-PLAN.md
 Resume file: None
