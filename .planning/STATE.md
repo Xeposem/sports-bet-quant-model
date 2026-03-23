@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-03-23T09:37:02.817Z"
+stopped_at: Completed 11-02-PLAN.md
+last_updated: "2026-03-23T09:43:40.348Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 11
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 36
-  completed_plans: 35
+  completed_plans: 36
   percent: 0
 ---
 
@@ -86,6 +86,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction P02 | 7 | 2 tasks | 6 files |
 | Phase 10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction P02 | 7 | 3 tasks | 6 files |
 | Phase 11-update-data-ingestion-to-use-stats-tennismylife-org-for-most-recent-atp-match-data P01 | 25 | 2 tasks | 4 files |
+| Phase 11-update-data-ingestion-to-use-stats-tennismylife-org-for-most-recent-atp-match-data P02 | 4 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -188,6 +189,8 @@ Recent decisions affecting current work:
 - [Phase 10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction]: PropScanPreview expands card.directions into individual ScanRow entries (one per direction) for independent deselect
 - [Phase 11-update-data-ingestion-to-use-stats-tennismylife-org-for-most-recent-atp-match-data]: Synthetic TML player IDs start at 900000 — above Sackmann max (~230000) to guarantee no collision
 - [Phase 11-update-data-ingestion-to-use-stats-tennismylife-org-for-most-recent-atp-match-data]: tml_downloader output filename prefixed tml_YYYY.csv — avoids collision with Sackmann atp_matches_YYYY.csv in same raw_dir
+- [Phase 11-update-data-ingestion-to-use-stats-tennismylife-org-for-most-recent-atp-match-data]: ingest_year_tml reads winner_id/loser_id as str dtype then casts to Int64 after normalise_tml_dataframe — avoids ValueError on alphanumeric TML IDs
+- [Phase 11-update-data-ingestion-to-use-stats-tennismylife-org-for-most-recent-atp-match-data]: auto mode catches requests.exceptions.HTTPError (not generic Exception) for precise Sackmann 404 detection without masking TML errors
 
 ### Roadmap Evolution
 
@@ -207,6 +210,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T09:37:02.810Z
-Stopped at: Completed 11-01-PLAN.md
+Last session: 2026-03-23T09:43:40.342Z
+Stopped at: Completed 11-02-PLAN.md
 Resume file: None

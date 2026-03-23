@@ -96,9 +96,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **TML-01**: System downloads TML yearly CSV files from the TML GitHub repository using stable URL pattern
 - [x] **TML-02**: System translates TML alphanumeric player IDs to synthetic integer IDs via a persistent tml_id_map table, starting at 900000 to avoid Sackmann ID collisions
-- [ ] **TML-03**: System ingests TML CSV data through the existing cleaner/upsert pipeline after ID normalisation
-- [ ] **TML-04**: CLI --source flag supports sackmann, tml, and auto modes (auto = Sackmann with TML fallback on 404)
-- [ ] **TML-05**: Existing Sackmann ingestion path remains unchanged — all prior tests pass without modification
+- [x] **TML-03**: System ingests TML CSV data through the existing cleaner/upsert pipeline after ID normalisation
+- [x] **TML-04**: CLI --source flag supports sackmann, tml, and auto modes (auto = Sackmann with TML fallback on 404)
+- [x] **TML-05**: Existing Sackmann ingestion path remains unchanged — all prior tests pass without modification
 
 ## v2 Requirements
 
