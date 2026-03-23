@@ -2,11 +2,17 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { PropsTab } from '../tabs/PropsTab';
 
-// Mock all 3 hooks
+// Mock all hooks
 vi.mock('../hooks/useProps', () => ({
   useProps: vi.fn(),
   useSubmitPropLine: vi.fn(),
   usePropAccuracy: vi.fn(),
+  useScanPropScreenshot: vi.fn(),
+}));
+
+// Mock PropScanPreview to avoid QueryClient dependency
+vi.mock('../components/shared/PropScanPreview', () => ({
+  PropScanPreview: () => <div data-testid="prop-scan-preview">PropScanPreview</div>,
 }));
 
 // Mock charts to avoid jsdom/WebGL rendering issues
@@ -20,7 +26,7 @@ vi.mock('@nivo/bar', () => ({
   ResponsiveBar: () => <div data-testid="responsive-bar">ResponsiveBar</div>,
 }));
 
-import { useProps, useSubmitPropLine, usePropAccuracy } from '../hooks/useProps';
+import { useProps, useSubmitPropLine, usePropAccuracy, useScanPropScreenshot } from '../hooks/useProps';
 
 const defaultPropsData = {
   data: { status: 'ok', data: [] },
@@ -47,10 +53,17 @@ const defaultMutateData = {
   isError: false,
 };
 
+const defaultScanMutateData = {
+  mutateAsync: vi.fn(),
+  isPending: false,
+  isError: false,
+};
+
 function setupDefaultMocks() {
   vi.mocked(useProps).mockReturnValue(defaultPropsData as any);
   vi.mocked(useSubmitPropLine).mockReturnValue(defaultMutateData as any);
   vi.mocked(usePropAccuracy).mockReturnValue(defaultAccuracyData as any);
+  vi.mocked(useScanPropScreenshot).mockReturnValue(defaultScanMutateData as any);
 }
 
 describe('PropsTab', () => {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,8 +16,9 @@ import { SkeletonCard } from '../components/shared/SkeletonCard';
 import { EmptyState } from '../components/shared/EmptyState';
 import { CalibrationChart } from '../components/charts/CalibrationChart';
 import { PmfChart } from '../components/charts/PmfChart';
-import { useProps, useSubmitPropLine, usePropAccuracy } from '../hooks/useProps';
-import type { PropPrediction, CalibrationBin } from '../api/types';
+import { useProps, useSubmitPropLine, usePropAccuracy, useScanPropScreenshot } from '../hooks/useProps';
+import { PropScanPreview } from '../components/shared/PropScanPreview';
+import type { PropPrediction, CalibrationBin, PropScanResponse } from '../api/types';
 
 type StatType = 'aces' | 'games_won' | 'double_faults';
 type Direction = 'over' | 'under';
@@ -127,9 +128,40 @@ export function PropsTab() {
   const [matchDate, setMatchDate] = useState(today);
   const [currentPrediction, setCurrentPrediction] = useState<PropPrediction | null>(null);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const scanMutation = useScanPropScreenshot();
+  const [scanResult, setScanResult] = useState<PropScanResponse | null>(null);
+
   const propsQuery = useProps();
   const accuracyQuery = usePropAccuracy();
   const submitMutation = useSubmitPropLine();
+
+  const handleUpload = async (file: File) => {
+    try {
+      const result = await scanMutation.mutateAsync(file);
+      if (result.cards.length === 0) {
+        toast.error('No ATP player props found in screenshot');
+      } else {
+        setScanResult(result);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to scan screenshot');
+    }
+  };
+
+  useEffect(() => {
+    const handler = (e: ClipboardEvent) => {
+      const item = Array.from(e.clipboardData?.items ?? [])
+        .find(i => i.type.startsWith('image/'));
+      if (item) {
+        const blob = item.getAsFile();
+        if (blob) handleUpload(blob);
+      }
+    };
+    window.addEventListener('paste', handler);
+    return () => window.removeEventListener('paste', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isAccuracyLoading = accuracyQuery.isLoading;
   const accuracyData = accuracyQuery.data;
@@ -229,6 +261,52 @@ export function PropsTab() {
           </>
         )}
       </div>
+
+      {/* Screenshot Scanner Section */}
+      <Card className="border-slate-700 bg-slate-800/50">
+        <CardHeader>
+          <CardTitle className="text-lg">Scan PrizePicks Screenshot</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {scanResult ? (
+            <PropScanPreview
+              cards={scanResult.cards}
+              onClose={() => setScanResult(null)}
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-4 py-6">
+              <p className="text-sm text-slate-400">
+                Upload a PrizePicks screenshot or paste from clipboard (Ctrl+V)
+              </p>
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleUpload(file);
+                }}
+              />
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={scanMutation.isPending}
+                variant="outline"
+                className="border-slate-600"
+              >
+                {scanMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Scanning...
+                  </>
+                ) : (
+                  'Scan PrizePicks Screenshot'
+                )}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Section B: Prop Entry Form */}
       <Card className="bg-slate-800 border-slate-700">
