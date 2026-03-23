@@ -11,5 +11,8 @@ scikit-learn>=1.4
 scipy>=1.10
 statsmodels>=0.14
 rapidfuzz>=3.0
+pytesseract==0.3.13
+opencv-python>=4.10.0
+python-multipart>=0.0.20
 pytest>=7.4.0
 pytest-cov>=4.0.0

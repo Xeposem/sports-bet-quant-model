@@ -14,9 +14,6 @@ Integration test (Task 2):
 """
 from __future__ import annotations
 
-import io
-import struct
-import zlib
 from unittest.mock import patch
 
 import numpy as np
@@ -27,21 +24,15 @@ import pytest
 # Helper: minimal 1x1 white PNG in bytes (no external libs needed for RED phase)
 # ---------------------------------------------------------------------------
 
-def _make_minimal_png() -> bytes:
-    """Create a minimal valid 1x1 white PNG as bytes."""
-    def _png_chunk(chunk_type: bytes, data: bytes) -> bytes:
-        c = chunk_type + data
-        return struct.pack(">I", len(data)) + c + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
-
-    signature = b"\x89PNG\r\n\x1a\n"
-    ihdr_data = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)  # 1x1 RGB
-    ihdr = _png_chunk(b"IHDR", ihdr_data)
-    # Raw image data: filter byte 0 + 3 bytes (white pixel)
-    raw_row = bytes([0, 255, 255, 255])
-    compressed = zlib.compress(raw_row)
-    idat = _png_chunk(b"IDAT", compressed)
-    iend = _png_chunk(b"IEND", b"")
-    return signature + ihdr + idat + iend
+def _make_valid_png() -> bytes:
+    """Create a valid white PNG (50x50) as bytes using numpy + cv2."""
+    import cv2
+    import numpy as np
+    # Create a 50x50 white BGR image
+    img = np.full((50, 50, 3), 255, dtype=np.uint8)
+    success, buf = cv2.imencode(".png", img)
+    assert success
+    return buf.tobytes()
 
 
 # ---------------------------------------------------------------------------
@@ -224,12 +215,10 @@ class TestScanImageBytes:
         from src.props.scanner import scan_image_bytes
         import pytesseract
 
-        png_bytes = _make_minimal_png()
-        with patch.object(
-            pytesseract,
-            "image_to_string",
-            side_effect=pytesseract.TesseractNotFoundError("not found"),
-        ):
+        png_bytes = _make_valid_png()
+        # Mock at the module level where scanner.py imported pytesseract
+        with patch("src.props.scanner.pytesseract.image_to_string",
+                   side_effect=pytesseract.TesseractNotFoundError()):
             result = scan_image_bytes(png_bytes, ":memory:")
 
         assert result["status"] == "tesseract_not_found"

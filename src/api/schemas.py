@@ -532,3 +532,25 @@ class PropLineListRow(BaseModel):
 class PropLinesListResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     data: List[PropLineListRow]
+
+
+# ---------------------------------------------------------------------------
+# Screenshot scan schemas (Phase 10)
+# ---------------------------------------------------------------------------
+
+class PropScanCard(BaseModel):
+    """Single prop card extracted from PrizePicks screenshot."""
+    model_config = ConfigDict(from_attributes=True)
+
+    player_name: str
+    stat_type: str
+    line_value: float
+    directions: List[str]
+
+
+class PropScanResponse(BaseModel):
+    """Response for POST /props/scan."""
+    model_config = ConfigDict(from_attributes=True)
+
+    status: str
+    cards: List[PropScanCard]
