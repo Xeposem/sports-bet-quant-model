@@ -85,6 +85,13 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **DASH-07**: React dashboard provides manual entry forms for bookmaker odds and PrizePicks prop lines
 - [x] **DASH-08**: FastAPI backend serves all model predictions, analytics, and historical data via REST API
 
+### Screenshot Scanner
+
+- [ ] **SCAN-01**: System accepts PrizePicks screenshot via file upload or clipboard paste, extracts player names, stat types, and line values using OCR
+- [ ] **SCAN-02**: System fuzzy-matches extracted player names against ATP players database and silently skips non-ATP players
+- [ ] **SCAN-03**: System presents extracted props in a preview table with checkboxes for user review before bulk submission
+- [ ] **SCAN-04**: System bulk-submits selected scanned props via the existing POST /props endpoint
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -166,12 +173,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SIG-03 | Phase 9 | Complete |
 | SIG-04 | Phase 9 | Complete |
 | DASH-07 | Phase 9 | Complete |
+| SCAN-01 | Phase 10 | Planned |
+| SCAN-02 | Phase 10 | Planned |
+| SCAN-03 | Phase 10 | Planned |
+| SCAN-04 | Phase 10 | Planned |
 
 **Coverage:**
-- v1 requirements: 48 total
-- Mapped to phases: 48
-- Unmapped: 0 ✓
+- v1 requirements: 52 total
+- Mapped to phases: 52
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 after roadmap creation — all 48 v1 requirements mapped*
+*Last updated: 2026-03-23 after Phase 10 planning — 4 SCAN requirements added*

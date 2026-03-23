@@ -19,6 +19,7 @@ This project builds a quantitative ATP tennis prediction platform from the data 
 - [x] **Phase 7: Advanced Models & Ensemble** - GBM and Bayesian models added; multi-model ensemble replaces single baseline (completed 2026-03-18)
 - [x] **Phase 8: Player Props** - Poisson/NegBin prop prediction models, manual PrizePicks line entry, PMF visualization, and accuracy tracking (completed 2026-03-19)
 - [x] **Phase 9: Simulation, Signals & Paper Trading** - Monte Carlo simulation, automated signal generation, and live paper trading (completed 2026-03-22)
+- [ ] **Phase 10: PrizePicks Screenshot CV Tool** - CV-powered screenshot scanner for batch ATP prop extraction via OCR
 
 ## Phase Details
 
@@ -168,10 +169,26 @@ Plans:
 - [ ] 09-03-PLAN.md -- Enhanced SignalCard + threshold slider, PaperTradingTab, TabNav 6th tab
 - [ ] 09-04-PLAN.md -- ManualEntryModal with type toggle, CRUD table, FAB trigger
 
+### Phase 10: PrizePicks Screenshot CV Tool
+**Goal**: A CV-powered screenshot scanner on the Props tab lets users upload or paste PrizePicks screenshots, extracts ATP prop cards via OCR, and bulk-submits them through the existing prop entry pipeline
+**Depends on**: Phase 9
+**Requirements**: SCAN-01, SCAN-02, SCAN-03, SCAN-04
+**Success Criteria** (what must be TRUE):
+  1. User can upload a PrizePicks screenshot via file picker or paste via Ctrl+V on the Props tab
+  2. The system extracts player names, stat types, and line values from screenshot cards using Tesseract OCR
+  3. Non-ATP players are silently filtered out via fuzzy matching against the players database
+  4. Extracted props appear in a preview table with checkboxes for user review before submission
+  5. User can bulk-submit selected props via the existing POST /props endpoint
+**Plans:** 2 plans
+
+Plans:
+- [ ] 10-01-PLAN.md -- Backend OCR scanner module, Pydantic schemas, POST /props/scan endpoint, unit tests
+- [ ] 10-02-PLAN.md -- Frontend scan flow: file upload + clipboard paste, preview table, bulk submission, visual verification
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -184,3 +201,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 7. Advanced Models & Ensemble | 4/4 | Complete   | 2026-03-18 |
 | 8. Player Props | 3/3 | Complete   | 2026-03-19 |
 | 9. Simulation, Signals & Paper Trading | 4/4 | Complete   | 2026-03-22 |
+| 10. PrizePicks Screenshot CV Tool | 0/2 | Planned    |  |
