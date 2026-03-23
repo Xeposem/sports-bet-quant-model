@@ -9,16 +9,21 @@ Exports:
 - log_ingestion(conn, year, source_file, rows_processed, rows_inserted, rows_skipped, status) -> None
 - get_unprocessed_years(conn, start_year, end_year) -> list[int]
 - ingest_year(conn, year, raw_dir, force) -> dict
-- ingest_all(db_path, raw_dir, start_year, force) -> list[dict]
+- ingest_year_tml(conn, year, raw_dir, force) -> dict
+- ingest_all(db_path, raw_dir, start_year, force, source) -> list[dict]
 """
+import os
 import sqlite3
 from datetime import datetime, timezone
 
 import pandas as pd
+import requests
 
 from src.db.connection import get_connection, init_db
 from src.ingestion.cleaner import MATCH_DTYPES, clean_match_dataframe
 from src.ingestion.downloader import download_match_file
+from src.ingestion.tml_downloader import download_tml_match_file, download_tml_player_file
+from src.ingestion.tml_id_mapper import build_id_map, normalise_tml_dataframe
 
 
 # Mapping from Sackmann winner/loser stat columns to match_stats schema columns
@@ -346,11 +351,91 @@ def ingest_year(
     }
 
 
+def ingest_year_tml(
+    conn: sqlite3.Connection,
+    year: int,
+    raw_dir: str,
+    force: bool = False,
+) -> dict:
+    """
+    Ingest one year from TML source. Same output contract as ingest_year.
+
+    Steps: Download TML CSV -> Download ATP_Database.csv (if missing) -> Build ID map
+    -> Read CSV with str player IDs -> Normalise IDs to integers -> Clean -> Upsert -> Log.
+
+    Args:
+        conn: Active SQLite connection (caller manages commit/rollback).
+        year: The season year to ingest.
+        raw_dir: Directory for downloading raw CSV files.
+        force: If True, skip the already-processed check (default False).
+
+    Returns:
+        Summary dict with keys: year, inserted, skipped, excluded, rows_processed.
+    """
+    # 1. Download TML match CSV
+    csv_path = download_tml_match_file(year, raw_dir)
+
+    # 2. Ensure ATP_Database.csv exists for ID mapping
+    player_csv = os.path.join(raw_dir, "ATP_Database.csv")
+    if not os.path.exists(player_csv):
+        download_tml_player_file(raw_dir)
+
+    # 3. Build/update ID map
+    build_id_map(player_csv, conn)
+
+    # 4. Read CSV — TML uses alphanumeric winner_id/loser_id, so override those dtypes to str
+    tml_dtypes = {k: v for k, v in MATCH_DTYPES.items()}
+    tml_dtypes["winner_id"] = str
+    tml_dtypes["loser_id"] = str
+    df = pd.read_csv(
+        csv_path,
+        dtype=tml_dtypes,
+        na_values=["", "nan", "NA"],
+        keep_default_na=True,
+    )
+
+    # 5. Translate TML alphanumeric IDs to synthetic integers
+    df = normalise_tml_dataframe(df, conn)
+    df["winner_id"] = df["winner_id"].astype("Int64")
+    df["loser_id"] = df["loser_id"].astype("Int64")
+
+    # 6. Clean (reindex drops 'indoor' column, classify_match works unchanged)
+    cleaned_df, excluded_df = clean_match_dataframe(df)
+
+    # 7. Upsert in dependency order (same as ingest_year)
+    upsert_tournaments(conn, cleaned_df)
+    upsert_players(conn, cleaned_df)
+    records = cleaned_df.to_dict(orient="records")
+    inserted, skipped = upsert_matches(conn, records)
+    upsert_match_stats(conn, cleaned_df)
+
+    # 8. Log with TML source file path
+    log_ingestion(
+        conn,
+        year=year,
+        source_file=csv_path,
+        rows_processed=len(cleaned_df),
+        rows_inserted=inserted,
+        rows_skipped=skipped,
+        status="success",
+    )
+    conn.commit()
+
+    return {
+        "year": year,
+        "inserted": inserted,
+        "skipped": skipped,
+        "excluded": len(excluded_df),
+        "rows_processed": len(cleaned_df),
+    }
+
+
 def ingest_all(
     db_path: str,
     raw_dir: str,
     start_year: int = 1991,
     force: bool = False,
+    source: str = "auto",
 ) -> list:
     """
     Initialize the database and ingest all unprocessed years.
@@ -360,9 +445,13 @@ def ingest_all(
         raw_dir: Directory for downloaded CSV files.
         start_year: First year to consider (default 1991).
         force: If True, re-ingest all years regardless of existing log entries.
+        source: Data source to use. One of:
+            - "sackmann": Use Sackmann CSV downloads only (historical data).
+            - "tml": Use TennisMyLife CSV downloads only (2025+).
+            - "auto": Try Sackmann first; fall back to TML on HTTPError (default).
 
     Returns:
-        List of per-year summary dicts from ingest_year.
+        List of per-year summary dicts from ingest_year or ingest_year_tml.
     """
     try:
         from tqdm import tqdm
@@ -382,7 +471,15 @@ def ingest_all(
         results = []
         for year in _tqdm(years):
             try:
-                result = ingest_year(conn, year=year, raw_dir=raw_dir, force=force)
+                if source == "tml":
+                    result = ingest_year_tml(conn, year=year, raw_dir=raw_dir, force=force)
+                elif source == "sackmann":
+                    result = ingest_year(conn, year=year, raw_dir=raw_dir, force=force)
+                else:  # auto
+                    try:
+                        result = ingest_year(conn, year=year, raw_dir=raw_dir, force=force)
+                    except requests.exceptions.HTTPError:
+                        result = ingest_year_tml(conn, year=year, raw_dir=raw_dir, force=force)
                 results.append(result)
             except Exception as exc:
                 log_ingestion(
