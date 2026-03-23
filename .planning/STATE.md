@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 10 context gathered
-last_updated: "2026-03-23T07:28:59.969Z"
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-03-23T08:12:02.720Z"
 last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
 progress:
   total_phases: 10
   completed_phases: 9
-  total_plans: 32
-  completed_plans: 32
+  total_plans: 34
+  completed_plans: 33
   percent: 0
 ---
 
@@ -82,6 +82,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 09-simulation-signals-paper-trading P04 | 4 | 2 tasks | 6 files |
 | Phase 09-simulation-signals-paper-trading P02 | 15 | 3 tasks | 7 files |
 | Phase 09-simulation-signals-paper-trading P03 | 448 | 3 tasks | 10 files |
+| Phase 10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction P01 | 575 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -176,6 +177,8 @@ Recent decisions affecting current work:
 - [Phase 09-simulation-signals-paper-trading]: useRunSimulation.data takes precedence over useSimulationResult.data so fresh mutation results display immediately without cache round-trip
 - [Phase 09-simulation-signals-paper-trading]: PaperEquityChart uses LineSeries not BaselineSeries — no reference baseline for paper equity, green/red color by total_pnl sign
 - [Phase 09-simulation-signals-paper-trading]: SignalsTab EV threshold stored in localStorage under key ev_threshold — persists slider position across page reloads
+- [Phase 10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction]: TesseractNotFoundError returns status=tesseract_not_found dict inside scan_image_bytes, converted to HTTP 503 at endpoint level
+- [Phase 10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction]: POST /scan registered before POST '' in props.py router to avoid FastAPI routing conflict
 
 ### Roadmap Evolution
 
@@ -194,6 +197,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T07:28:59.961Z
-Stopped at: Phase 10 context gathered
-Resume file: .planning/phases/10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction/10-CONTEXT.md
+Last session: 2026-03-23T08:12:02.713Z
+Stopped at: Completed 10-01-PLAN.md
+Resume file: None
