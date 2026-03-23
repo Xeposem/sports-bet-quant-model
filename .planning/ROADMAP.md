@@ -196,7 +196,7 @@ Plans:
   3. The tml_id_map table provides stable, idempotent TML-to-integer ID mappings across repeated runs
   4. Running `python -m src.ingestion --source auto` uses Sackmann where available and falls back to TML for years where Sackmann returns 404
   5. The existing Sackmann ingestion path is completely unchanged and all existing tests pass
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 11-01-PLAN.md -- TML downloader module, ID mapper with tml_id_map table, DataFrame normaliser, unit tests
@@ -219,4 +219,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 8. Player Props | 3/3 | Complete   | 2026-03-19 |
 | 9. Simulation, Signals & Paper Trading | 4/4 | Complete   | 2026-03-22 |
 | 10. PrizePicks Screenshot CV Tool | 2/2 | Complete    | 2026-03-23 |
-| 11. TML Data Ingestion | 0/2 | Planned    |  |
+| 11. TML Data Ingestion | 1/2 | In Progress|  |
