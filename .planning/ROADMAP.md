@@ -185,10 +185,27 @@ Plans:
 - [ ] 10-01-PLAN.md -- Backend OCR scanner module, Pydantic schemas, POST /props/scan endpoint, unit tests
 - [ ] 10-02-PLAN.md -- Frontend scan flow: file upload + clipboard paste, preview table, bulk submission, visual verification
 
+### Phase 11: Update data ingestion to use stats.tennismylife.org for most recent ATP match data
+
+**Goal:** Dual-source ingestion pipeline that uses Sackmann for historical data and TennisMyLife (TML) for current-year ATP matches (2025+), with a CLI --source flag and automatic fallback
+**Depends on:** Phase 10
+**Requirements**: TML-01, TML-02, TML-03, TML-04, TML-05
+**Success Criteria** (what must be TRUE):
+  1. Running `python -m src.ingestion --source tml --start-year 2025` downloads and ingests TML CSV data into the existing SQLite schema without errors
+  2. TML alphanumeric player IDs are translated to synthetic integer IDs (starting at 900000) that do not collide with Sackmann IDs
+  3. The tml_id_map table provides stable, idempotent TML-to-integer ID mappings across repeated runs
+  4. Running `python -m src.ingestion --source auto` uses Sackmann where available and falls back to TML for years where Sackmann returns 404
+  5. The existing Sackmann ingestion path is completely unchanged and all existing tests pass
+**Plans:** 2 plans
+
+Plans:
+- [ ] 11-01-PLAN.md -- TML downloader module, ID mapper with tml_id_map table, DataFrame normaliser, unit tests
+- [ ] 11-02-PLAN.md -- Loader integration (ingest_year_tml), CLI --source flag, integration tests
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -202,3 +219,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 8. Player Props | 3/3 | Complete   | 2026-03-19 |
 | 9. Simulation, Signals & Paper Trading | 4/4 | Complete   | 2026-03-22 |
 | 10. PrizePicks Screenshot CV Tool | 2/2 | Complete    | 2026-03-23 |
+| 11. TML Data Ingestion | 0/2 | Planned    |  |

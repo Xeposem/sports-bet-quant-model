@@ -92,6 +92,14 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **SCAN-03**: System presents extracted props in a preview table with checkboxes for user review before bulk submission
 - [x] **SCAN-04**: System bulk-submits selected scanned props via the existing POST /props endpoint
 
+### TML Data Source
+
+- [ ] **TML-01**: System downloads TML yearly CSV files from the TML GitHub repository using stable URL pattern
+- [ ] **TML-02**: System translates TML alphanumeric player IDs to synthetic integer IDs via a persistent tml_id_map table, starting at 900000 to avoid Sackmann ID collisions
+- [ ] **TML-03**: System ingests TML CSV data through the existing cleaner/upsert pipeline after ID normalisation
+- [ ] **TML-04**: CLI --source flag supports sackmann, tml, and auto modes (auto = Sackmann with TML fallback on 404)
+- [ ] **TML-05**: Existing Sackmann ingestion path remains unchanged — all prior tests pass without modification
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -173,16 +181,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SIG-03 | Phase 9 | Complete |
 | SIG-04 | Phase 9 | Complete |
 | DASH-07 | Phase 9 | Complete |
-| SCAN-01 | Phase 10 | Planned |
-| SCAN-02 | Phase 10 | Planned |
-| SCAN-03 | Phase 10 | Planned |
-| SCAN-04 | Phase 10 | Planned |
+| SCAN-01 | Phase 10 | Complete |
+| SCAN-02 | Phase 10 | Complete |
+| SCAN-03 | Phase 10 | Complete |
+| SCAN-04 | Phase 10 | Complete |
+| TML-01 | Phase 11 | Planned |
+| TML-02 | Phase 11 | Planned |
+| TML-03 | Phase 11 | Planned |
+| TML-04 | Phase 11 | Planned |
+| TML-05 | Phase 11 | Planned |
 
 **Coverage:**
-- v1 requirements: 52 total
-- Mapped to phases: 52
+- v1 requirements: 57 total
+- Mapped to phases: 57
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-23 after Phase 10 planning — 4 SCAN requirements added*
+*Last updated: 2026-03-23 after Phase 11 planning — 5 TML requirements added*
