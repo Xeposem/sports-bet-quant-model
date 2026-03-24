@@ -205,7 +205,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11 -> 12
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -219,4 +219,53 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 8. Player Props | 3/3 | Complete   | 2026-03-19 |
 | 9. Simulation, Signals & Paper Trading | 4/4 | Complete   | 2026-03-22 |
 | 10. PrizePicks Screenshot CV Tool | 2/2 | Complete    | 2026-03-23 |
-| 11. TML Data Ingestion | 2/2 | Complete   | 2026-03-23 |
+| 11. TML Data Ingestion | 2/2 | Complete    | 2026-03-23 |
+| 12. Pinnacle Odds Feature | 0/3 | Planned    |  |
+
+### Phase 12: Add Pinnacle odds as a feature and retrain on the residual
+
+**Goal:** Pinnacle devigged probability is stored as a feature in match_features and used to train market-aware model versions (logistic_v3_pinnacle, xgboost_v2_pinnacle, ensemble_v2_pinnacle) that learn incremental signal beyond market consensus
+**Depends on:** Phase 11
+**Requirements**: PIN-01, PIN-02, PIN-03, PIN-04, PIN-05, PIN-06, PIN-07
+**Success Criteria** (what must be TRUE):
+  1. match_features has pinnacle_prob_winner, pinnacle_prob_loser, and has_no_pinnacle columns populated by build_feature_row
+  2. LOGISTIC_FEATURES (16 entries) and XGB_FEATURES (31 entries) include pinnacle_prob_diff and has_no_pinnacle
+  3. logistic_v3_pinnacle, xgboost_v2_pinnacle, and ensemble_v2_pinnacle are registered in MODEL_REGISTRY
+  4. Walk-forward backtesting dispatches Pinnacle model versions correctly with COALESCE imputation for pre-2010 data
+  5. Existing model versions (logistic_v1, xgboost_v1, bayesian_v1, ensemble_v1) remain fully intact
+**Plans:** 3 plans
+
+Plans:
+- [ ] 12-01-PLAN.md -- Schema migration + Pinnacle feature builder (_get_pinnacle_prob, build_feature_row, _insert_feature_row)
+- [ ] 12-02-PLAN.md -- Feature constants/SQL extension, model registry entries, walk-forward dispatch
+- [ ] 12-03-PLAN.md -- Ensemble v2 pinnacle (train/predict), registry entry, walk-forward ensemble dispatch
+
+### Phase 13: Implement EV threshold filtering — only bet when divergence exceeds X percent
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 12
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 13 to break down)
+
+### Phase 14: Add court speed index per tournament
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 13
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 14 to break down)
+
+### Phase 15: Explore prop markets — NegBin models may have more edge on aces and games than the moneyline model
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 14
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 15 to break down)

@@ -100,6 +100,16 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **TML-04**: CLI --source flag supports sackmann, tml, and auto modes (auto = Sackmann with TML fallback on 404)
 - [x] **TML-05**: Existing Sackmann ingestion path remains unchanged — all prior tests pass without modification
 
+### Pinnacle Market Feature
+
+- [ ] **PIN-01**: System joins Pinnacle devigged probability onto match_features as pinnacle_prob_winner and pinnacle_prob_loser per match (NULL when no odds available)
+- [ ] **PIN-02**: System adds pinnacle_prob_diff (winner - loser devigged Pinnacle prob) and has_no_pinnacle indicator to the match_features schema and training SQL
+- [ ] **PIN-03**: System trains logistic_v3_pinnacle using LOGISTIC_FEATURES extended with pinnacle_prob_diff and has_no_pinnacle
+- [ ] **PIN-04**: System trains xgboost_v2_pinnacle using XGB_FEATURES extended with pinnacle_prob_diff and has_no_pinnacle
+- [ ] **PIN-05**: Walk-forward backtesting supports Pinnacle-augmented model versions; folds before ~2010 impute Pinnacle prob as 0.5 with has_no_pinnacle=1
+- [ ] **PIN-06**: Ensemble v2_pinnacle blends logistic_v3_pinnacle and xgboost_v2_pinnacle weighted by inverse Brier score
+- [ ] **PIN-07**: Model registry exposes logistic_v3_pinnacle, xgboost_v2_pinnacle, and ensemble_v2_pinnacle; existing versions remain intact
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -190,12 +200,19 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TML-03 | Phase 11 | Planned |
 | TML-04 | Phase 11 | Planned |
 | TML-05 | Phase 11 | Planned |
+| PIN-01 | Phase 12 | Planned |
+| PIN-02 | Phase 12 | Planned |
+| PIN-03 | Phase 12 | Planned |
+| PIN-04 | Phase 12 | Planned |
+| PIN-05 | Phase 12 | Planned |
+| PIN-06 | Phase 12 | Planned |
+| PIN-07 | Phase 12 | Planned |
 
 **Coverage:**
-- v1 requirements: 57 total
-- Mapped to phases: 57
+- v1 requirements: 64 total
+- Mapped to phases: 64
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-23 after Phase 11 planning — 5 TML requirements added*
+*Last updated: 2026-03-24 after Phase 12 planning — 7 Pinnacle requirements added*
