@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-stopped_at: Completed 14-03-PLAN.md
-last_updated: "2026-03-25T23:13:35.349Z"
+status: Phase complete — ready for verification
+stopped_at: Completed 14-02-PLAN.md
+last_updated: "2026-03-25T23:22:26.396Z"
 progress:
   total_phases: 15
   completed_phases: 13
@@ -90,6 +90,7 @@ Plan: 3 of 3
 | Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent P02 | 18 | 2 tasks | 9 files |
 | Phase 14-add-court-speed-index-per-tournament P01 | 277 | 2 tasks | 5 files |
 | Phase 14-add-court-speed-index-per-tournament P03 | 3 | 2 tasks | 6 files |
+| Phase 14-add-court-speed-index-per-tournament P02 | 360 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -208,6 +209,8 @@ Recent decisions affecting current work:
 - [Phase 14-add-court-speed-index-per-tournament]: COUNT(DISTINCT match_num) for min_matches threshold to avoid double-counting winner/loser stat rows
 - [Phase 14-add-court-speed-index-per-tournament]: Percentile-rank normalization for CSI values — bounded [0,1], robust to outliers
 - [Phase 14-add-court-speed-index-per-tournament]: numpy.percentile used in API routers for tercile computation — SQLite lacks PERCENTILE_CONT
+- [Phase 14-add-court-speed-index-per-tournament]: LOGISTIC_V4_FEATURES = LOGISTIC_FEATURES + [...] — list concatenation preserves old constant intact for backward-compatible serialized models
+- [Phase 14-add-court-speed-index-per-tournament]: ensemble_v3 blends logistic_v4 + xgboost_v3 only (no Bayesian) — follows pinnacle ensemble pattern; run_fold uses v4 SQL with CSI JOINs for new versions
 
 ### Roadmap Evolution
 
@@ -231,6 +234,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-25T23:13:35.342Z
-Stopped at: Completed 14-03-PLAN.md
+Last session: 2026-03-25T23:22:26.388Z
+Stopped at: Completed 14-02-PLAN.md
 Resume file: None
