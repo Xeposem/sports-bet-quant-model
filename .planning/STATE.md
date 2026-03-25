@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 14-01-PLAN.md
-last_updated: "2026-03-25T23:08:16.837Z"
+stopped_at: Completed 14-03-PLAN.md
+last_updated: "2026-03-25T23:13:35.349Z"
 progress:
   total_phases: 15
   completed_phases: 13
   total_plans: 44
-  completed_plans: 42
+  completed_plans: 43
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 ## Current Position
 
 Phase: 14 (add-court-speed-index-per-tournament) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -89,6 +89,7 @@ Plan: 2 of 3
 | Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent P01 | 35 | 2 tasks | 8 files |
 | Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent P02 | 18 | 2 tasks | 9 files |
 | Phase 14-add-court-speed-index-per-tournament P01 | 277 | 2 tasks | 5 files |
+| Phase 14-add-court-speed-index-per-tournament P03 | 3 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -206,6 +207,7 @@ Recent decisions affecting current work:
 - [Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent]: @nivo/line installed for sweep chart — was absent from package.json despite other nivo packages being present
 - [Phase 14-add-court-speed-index-per-tournament]: COUNT(DISTINCT match_num) for min_matches threshold to avoid double-counting winner/loser stat rows
 - [Phase 14-add-court-speed-index-per-tournament]: Percentile-rank normalization for CSI values — bounded [0,1], robust to outliers
+- [Phase 14-add-court-speed-index-per-tournament]: numpy.percentile used in API routers for tercile computation — SQLite lacks PERCENTILE_CONT
 
 ### Roadmap Evolution
 
@@ -229,6 +231,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-25T23:08:16.829Z
-Stopped at: Completed 14-01-PLAN.md
+Last session: 2026-03-25T23:13:35.342Z
+Stopped at: Completed 14-03-PLAN.md
 Resume file: None

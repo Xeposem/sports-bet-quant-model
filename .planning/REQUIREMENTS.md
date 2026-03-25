@@ -119,9 +119,9 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **CSI-05**: System extends LOGISTIC_V4_FEATURES (19 entries) and XGB_V3_FEATURES (35 entries) with CSI features
 - [ ] **CSI-06**: System registers logistic_v4, xgboost_v3, and ensemble_v3 in MODEL_REGISTRY
 - [ ] **CSI-07**: Walk-forward backtesting includes CSI columns in training and test queries for v4/v3 model versions
-- [ ] **CSI-08**: GET /backtest returns by_speed_tier breakdown (Fast/Medium/Slow terciles) via JOIN at query time
-- [ ] **CSI-09**: GET /signals includes court_speed_index and court_speed_tier fields per signal
-- [ ] **CSI-10**: Dashboard BacktestTab renders speed tier ROI bar chart; SignalCard displays CSI badge
+- [x] **CSI-08**: GET /backtest returns by_speed_tier breakdown (Fast/Medium/Slow terciles) via JOIN at query time
+- [x] **CSI-09**: GET /signals includes court_speed_index and court_speed_tier fields per signal
+- [x] **CSI-10**: Dashboard BacktestTab renders speed tier ROI bar chart; SignalCard displays CSI badge
 
 ## v2 Requirements
 
