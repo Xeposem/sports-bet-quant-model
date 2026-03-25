@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to plan
-stopped_at: Completed 13-02-PLAN.md
-last_updated: "2026-03-25T07:47:20.711Z"
+status: Ready to execute
+stopped_at: Completed 14-01-PLAN.md
+last_updated: "2026-03-25T23:08:16.837Z"
 progress:
   total_phases: 15
   completed_phases: 13
-  total_plans: 41
-  completed_plans: 41
+  total_plans: 44
+  completed_plans: 42
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Accurate, data-driven predictions that identify positive expected value betting opportunities in tennis — measured by demonstrable edge over bookmaker lines in backtesting
-**Current focus:** Phase 13 — implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent
+**Current focus:** Phase 14 — add-court-speed-index-per-tournament
 
 ## Current Position
 
-Phase: 14
-Plan: Not started
+Phase: 14 (add-court-speed-index-per-tournament) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -88,6 +88,7 @@ Plan: Not started
 | Phase 12-add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual P03 | 7 | 1 tasks | 4 files |
 | Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent P01 | 35 | 2 tasks | 8 files |
 | Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent P02 | 18 | 2 tasks | 9 files |
+| Phase 14-add-court-speed-index-per-tournament P01 | 277 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -203,6 +204,8 @@ Recent decisions affecting current work:
 - [Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent]: run_clv_sweep docstring explains DB side-effects; after sweep, caller runs regular backtest at configured threshold to leave DB consistent
 - [Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent]: CLV sliders do not apply client-side filtering on Signals/Paper tabs — signals lack pinnacle_prob; values stored for future API use
 - [Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent]: @nivo/line installed for sweep chart — was absent from package.json despite other nivo packages being present
+- [Phase 14-add-court-speed-index-per-tournament]: COUNT(DISTINCT match_num) for min_matches threshold to avoid double-counting winner/loser stat rows
+- [Phase 14-add-court-speed-index-per-tournament]: Percentile-rank normalization for CSI values — bounded [0,1], robust to outliers
 
 ### Roadmap Evolution
 
@@ -226,6 +229,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-25T07:41:22.371Z
-Stopped at: Completed 13-02-PLAN.md
+Last session: 2026-03-25T23:08:16.829Z
+Stopped at: Completed 14-01-PLAN.md
 Resume file: None

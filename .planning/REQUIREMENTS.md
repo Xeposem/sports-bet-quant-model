@@ -112,10 +112,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Court Speed Index
 
-- [ ] **CSI-01**: System computes per-tournament CSI from match_stats ace_rate and first_serve_won_pct with a 3-year rolling window
-- [ ] **CSI-02**: System applies minimum 10-match threshold; tournaments below threshold fall back to surface average CSI with has_no_csi=1 indicator
-- [ ] **CSI-03**: System stores court_speed_index in a new table keyed by (tourney_id, tour)
-- [ ] **CSI-04**: System adds court_speed_index, has_no_csi, and speed_affinity columns to match_features via build_feature_row
+- [x] **CSI-01**: System computes per-tournament CSI from match_stats ace_rate and first_serve_won_pct with a 3-year rolling window
+- [x] **CSI-02**: System applies minimum 10-match threshold; tournaments below threshold fall back to surface average CSI with has_no_csi=1 indicator
+- [x] **CSI-03**: System stores court_speed_index in a new table keyed by (tourney_id, tour)
+- [x] **CSI-04**: System adds court_speed_index, has_no_csi, and speed_affinity columns to match_features via build_feature_row
 - [ ] **CSI-05**: System extends LOGISTIC_V4_FEATURES (19 entries) and XGB_V3_FEATURES (35 entries) with CSI features
 - [ ] **CSI-06**: System registers logistic_v4, xgboost_v3, and ensemble_v3 in MODEL_REGISTRY
 - [ ] **CSI-07**: Walk-forward backtesting includes CSI columns in training and test queries for v4/v3 model versions
