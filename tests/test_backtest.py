@@ -341,6 +341,91 @@ class TestRunFold:
             assert row["kelly_bet"] == 0.0, f"Expected kelly_bet=0 for no-odds match, got {row['kelly_bet']}"
 
 
+# ---------------------------------------------------------------------------
+# Task 1 (Phase 13): CLV gate tests
+# ---------------------------------------------------------------------------
+
+
+class TestCLVGate:
+    def test_clv_gate_filters_low_divergence(self):
+        """CLV gate returns 0.0 when model_prob - pinnacle_prob <= clv_threshold."""
+        from src.backtest.kelly import compute_kelly_bet
+
+        # 0.55 - 0.52 = 0.03 < 0.05 threshold → filtered out
+        bet = compute_kelly_bet(
+            prob=0.55, decimal_odds=2.0, bankroll=1000,
+            clv_threshold=0.05, pinnacle_prob=0.52, has_no_pinnacle=0,
+        )
+        assert bet == 0.0, f"Expected 0.0 (CLV too low), got {bet}"
+
+    def test_clv_gate_passes_high_divergence(self):
+        """CLV gate passes when model_prob - pinnacle_prob > clv_threshold."""
+        from src.backtest.kelly import compute_kelly_bet
+
+        # 0.60 - 0.52 = 0.08 > 0.05 threshold → bet placed
+        bet = compute_kelly_bet(
+            prob=0.60, decimal_odds=2.0, bankroll=1000,
+            clv_threshold=0.05, pinnacle_prob=0.52, has_no_pinnacle=0,
+        )
+        assert bet > 0.0, f"Expected positive bet (CLV sufficient), got {bet}"
+
+    def test_clv_gate_bypassed_no_pinnacle(self):
+        """CLV check skipped entirely when has_no_pinnacle=1 (pre-Pinnacle match)."""
+        from src.backtest.kelly import compute_kelly_bet
+
+        # has_no_pinnacle=1 → CLV check bypassed → EV gate only applies
+        bet = compute_kelly_bet(
+            prob=0.55, decimal_odds=2.0, bankroll=1000,
+            clv_threshold=0.10, pinnacle_prob=None, has_no_pinnacle=1,
+        )
+        assert bet > 0.0, f"Expected positive bet (no-Pinnacle bypass), got {bet}"
+
+    def test_clv_gate_zero_threshold_no_filter(self):
+        """clv_threshold=0.0 means no CLV filtering (backward compatible)."""
+        from src.backtest.kelly import compute_kelly_bet
+
+        # threshold 0.0 → no CLV filtering, only EV gate
+        bet = compute_kelly_bet(
+            prob=0.55, decimal_odds=2.0, bankroll=1000,
+            clv_threshold=0.0, pinnacle_prob=0.54, has_no_pinnacle=0,
+        )
+        assert bet > 0.0, f"Expected positive bet (zero threshold), got {bet}"
+
+
+class TestCLVConfigThreading:
+    def test_clv_config_threading_in_walk_forward(self):
+        """run_walk_forward threads clv_threshold from config dict through to run_fold."""
+        from unittest.mock import patch, MagicMock
+        import sqlite3
+        from src.backtest.walk_forward import run_walk_forward
+
+        mock_conn = MagicMock(spec=sqlite3.Connection)
+        # generate_folds returns one fold
+        mock_conn.execute.return_value.fetchall.return_value = [
+            (2022,),  # one test year
+        ]
+        mock_conn.execute.return_value.fetchone.return_value = (600,)  # enough training rows
+
+        with patch("src.backtest.walk_forward.generate_folds") as mock_gen_folds, \
+             patch("src.backtest.walk_forward.run_fold") as mock_run_fold, \
+             patch("src.backtest.walk_forward._store_backtest_results"):
+            mock_gen_folds.return_value = [("2022-01-01", "2022-01-01", "2023-01-01")]
+            mock_run_fold.return_value = ([], 1000.0)
+
+            run_walk_forward(mock_conn, {"clv_threshold": 0.05})
+
+            # Verify run_fold was called with fold_config containing clv_threshold
+            assert mock_run_fold.called, "run_fold was not called"
+            call_args = mock_run_fold.call_args
+            fold_config_arg = call_args[0][5]  # 6th positional arg is config
+            assert "clv_threshold" in fold_config_arg, (
+                f"clv_threshold missing from fold_config: {fold_config_arg}"
+            )
+            assert fold_config_arg["clv_threshold"] == 0.05, (
+                f"Expected clv_threshold=0.05, got {fold_config_arg['clv_threshold']}"
+            )
+
+
 class TestRunWalkForward:
     def test_run_walk_forward(self, db_with_matches):
         """run_walk_forward returns summary dict with required keys; bankroll carries across folds."""
