@@ -233,7 +233,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
   3. logistic_v3_pinnacle, xgboost_v2_pinnacle, and ensemble_v2_pinnacle are registered in MODEL_REGISTRY
   4. Walk-forward backtesting dispatches Pinnacle model versions correctly with COALESCE imputation for pre-2010 data
   5. Existing model versions (logistic_v1, xgboost_v1, bayesian_v1, ensemble_v1) remain fully intact
-**Plans:** 3 plans
+**Plans:** 0/3 plans executed
 
 Plans:
 - [ ] 12-01-PLAN.md -- Schema migration + Pinnacle feature builder (_get_pinnacle_prob, build_feature_row, _insert_feature_row)

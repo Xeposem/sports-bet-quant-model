@@ -199,6 +199,16 @@ def _make_test_db_with_data(n_matches: int = 25):
             PRIMARY KEY (tourney_id, match_num, tour, player_role)
         );
 
+        CREATE TABLE IF NOT EXISTS tournaments (
+            tourney_id TEXT NOT NULL,
+            tour TEXT NOT NULL DEFAULT 'ATP',
+            tourney_name TEXT,
+            surface TEXT,
+            tourney_level TEXT,
+            tourney_date TEXT,
+            PRIMARY KEY (tourney_id, tour)
+        );
+
         CREATE TABLE IF NOT EXISTS prop_predictions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             tour TEXT NOT NULL DEFAULT 'ATP',
@@ -232,6 +242,12 @@ def _make_test_db_with_data(n_matches: int = 25):
         level = levels[i % 3]
         tourney_id = f"2023-T{i:03d}"
         date_str = f"2023-{(i % 12) + 1:02d}-{(i % 28) + 1:02d}"
+
+        conn.execute("""
+            INSERT OR IGNORE INTO tournaments
+            (tourney_id, tour, tourney_name, surface, tourney_level, tourney_date)
+            VALUES (?, 'ATP', 'Test Open', ?, ?, ?)
+        """, (tourney_id, surface, level, date_str))
 
         conn.execute("""
             INSERT OR IGNORE INTO matches

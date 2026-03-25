@@ -1,11 +1,12 @@
 """
-Fuzzy match linking: links odds CSV rows to Sackmann match IDs via
+Fuzzy match linking: links odds CSV rows to match IDs via
 tourney_date + player name fuzzy matching.
 
 Uses rapidfuzz for C++-speed token_sort_ratio matching, which handles
 name order variants (e.g., "Djokovic N." vs "Novak Djokovic").
 """
 import logging
+import re
 import sqlite3
 from datetime import date, timedelta
 from typing import Optional
@@ -15,8 +16,42 @@ from rapidfuzz import fuzz, process
 
 logger = logging.getLogger(__name__)
 
-# Date window for match lookup: ±3 days from the odds CSV date
-_DATE_WINDOW_DAYS = 3
+# Pattern to strip abbreviated initials with periods (e.g. "R.", "Zh.")
+# Matches 1-2 uppercase letters followed by a period at a word boundary.
+_INITIAL_RE = re.compile(r"\b[A-Z][a-z]?\.\s*")
+
+
+def _normalize_name(name: str) -> str:
+    """Normalize a player name for fuzzy matching.
+
+    - Strips abbreviated initials with periods ("Federer R." -> "Federer",
+      "Zhang Zh." -> "Zhang") — applied before lowercasing so [A-Z] matches
+    - Replaces apostrophes with spaces ("O'Connell" -> "o connell") so it
+      matches odds-file format ("O Connell")
+    - Lowercases for case-insensitive comparison ("De Jong" == "de Jong")
+    - Collapses extra whitespace
+    """
+    if not name:
+        return name or ""
+    # Strip initials before lowercasing (regex needs uppercase letters)
+    cleaned = _INITIAL_RE.sub(" ", name)
+    cleaned = cleaned.replace("'", " ").replace("\u2019", " ")
+    # Normalize hyphens to spaces — odds files use hyphens ("Auger-Aliassime")
+    # but the DB often stores spaces ("Auger Aliassime") or vice versa.
+    cleaned = cleaned.replace("-", " ")
+    cleaned = cleaned.lower()
+    cleaned = cleaned.strip()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned if cleaned else name.lower()
+
+# Date window for match lookup.
+# The DB stores tournament start date for all matches, while odds files have
+# the actual match date. Large events (Grand Slams, Shanghai) can span up to
+# 18 days, so we look back 21 days to be safe, and forward 3 days for minor
+# date discrepancies. False positives are prevented by requiring both player
+# names to fuzzy-match.
+_DATE_WINDOW_BEFORE = 21
+_DATE_WINDOW_AFTER = 3
 
 
 def fuzzy_link_player(
@@ -49,9 +84,20 @@ def fuzzy_link_player(
     if not candidates:
         return None
 
+    # Try exact fuzzy match first
     result = process.extractOne(name, candidates, scorer=fuzz.token_set_ratio)
     if result is not None and result[1] >= threshold:
         return result[0]
+
+    # Retry with normalized names (strip initials like "R." from "Federer R.")
+    norm_name = _normalize_name(name)
+    norm_candidates = [_normalize_name(c) for c in candidates]
+    result = process.extractOne(norm_name, norm_candidates, scorer=fuzz.token_set_ratio)
+    if result is not None and result[1] >= threshold:
+        # Map back to original candidate string
+        idx = norm_candidates.index(result[0])
+        return candidates[idx]
+
     return None
 
 
@@ -60,7 +106,7 @@ def link_odds_to_matches(
     odds_rows: list,
 ) -> list:
     """
-    Link a list of odds CSV rows to Sackmann match IDs.
+    Link a list of odds CSV rows to match IDs.
 
     For each odds row, queries matches within ±3 days of the match date,
     builds candidate player name list, and fuzzy matches winner and loser names.
@@ -77,7 +123,13 @@ def link_odds_to_matches(
     """
     results = []
 
-    for row in odds_rows:
+    try:
+        from tqdm import tqdm
+        odds_iter = tqdm(odds_rows, desc="Linking odds", unit="row")
+    except ImportError:
+        odds_iter = odds_rows
+
+    for row in odds_iter:
         match_date_str = row.get("match_date")
         winner_name = row.get("winner_name", "")
         loser_name = row.get("loser_name", "")
@@ -99,16 +151,20 @@ def link_odds_to_matches(
             results.append(linked_row)
             continue
 
-        start_date = (center_date - timedelta(days=_DATE_WINDOW_DAYS)).isoformat()
-        end_date = (center_date + timedelta(days=_DATE_WINDOW_DAYS)).isoformat()
+        start_date = (center_date - timedelta(days=_DATE_WINDOW_BEFORE)).isoformat()
+        end_date = (center_date + timedelta(days=_DATE_WINDOW_AFTER)).isoformat()
 
         # Fetch all matches in the date window with player names
         candidate_rows = conn.execute(
             """
             SELECT
                 m.tourney_id, m.match_num, m.tour,
-                pw.first_name || ' ' || pw.last_name AS winner_full_name,
-                pl.first_name || ' ' || pl.last_name AS loser_full_name,
+                CASE WHEN pw.first_name IS NOT NULL
+                     THEN pw.first_name || ' ' || pw.last_name
+                     ELSE pw.last_name END AS winner_full_name,
+                CASE WHEN pl.first_name IS NOT NULL
+                     THEN pl.first_name || ' ' || pl.last_name
+                     ELSE pl.last_name END AS loser_full_name,
                 pw.last_name AS winner_last_name,
                 pl.last_name AS loser_last_name
             FROM matches m
@@ -127,57 +183,41 @@ def link_odds_to_matches(
             results.append(linked_row)
             continue
 
-        # Build candidate name lists for fuzzy matching.
-        # Include both "First Last" and "Last" variants to handle CSV format differences.
-        winner_candidates = []
-        loser_candidates = []
-        candidate_map = {}  # candidate_key -> (tourney_id, match_num, tour)
+        # Score each candidate match by fuzzy-matching BOTH winner and loser names.
+        # This avoids false positives from the wider date window.
+        norm_w = _normalize_name(winner_name)
+        norm_l = _normalize_name(loser_name)
+        best_score = 0
+        best_key = None
 
         for cand in candidate_rows:
-            w_full = cand["winner_full_name"]
-            l_full = cand["loser_full_name"]
-            w_last = cand["winner_last_name"]
-            l_last = cand["loser_last_name"]
-
             key = (cand["tourney_id"], cand["match_num"], cand["tour"])
+            # Try both full name and last name, take the best score for each side
+            w_names = [cand["winner_full_name"], cand["winner_last_name"]]
+            l_names = [cand["loser_full_name"], cand["loser_last_name"]]
 
-            if w_full not in winner_candidates:
-                winner_candidates.append(w_full)
-                candidate_map[("winner", w_full)] = key
-            if w_last not in winner_candidates:
-                winner_candidates.append(w_last)
-                candidate_map[("winner", w_last)] = key
+            w_score = max(
+                fuzz.token_set_ratio(norm_w, _normalize_name(n or ""))
+                for n in w_names
+            )
+            l_score = max(
+                fuzz.token_set_ratio(norm_l, _normalize_name(n or ""))
+                for n in l_names
+            )
 
-            if l_full not in loser_candidates:
-                loser_candidates.append(l_full)
-                candidate_map[("loser", l_full)] = key
-            if l_last not in loser_candidates:
-                loser_candidates.append(l_last)
-                candidate_map[("loser", l_last)] = key
+            # Both players must pass threshold. 75 is safe because we
+            # require BOTH names to match (not just one), preventing false
+            # positives. Needed for multi-word surnames like "De Minaur".
+            if w_score >= 75 and l_score >= 75:
+                combined = w_score + l_score
+                if combined > best_score:
+                    best_score = combined
+                    best_key = key
 
-        matched_winner = fuzzy_link_player(winner_name, winner_candidates, threshold=85)
-        matched_loser = fuzzy_link_player(loser_name, loser_candidates, threshold=85)
-
-        if matched_winner is not None:
-            match_key = candidate_map.get(("winner", matched_winner))
-            if match_key:
-                linked_row["tourney_id"] = match_key[0]
-                linked_row["match_num"] = match_key[1]
-                linked_row["tour"] = match_key[2]
-                logger.debug(
-                    "Linked '%s' -> '%s' (match %s/%s)",
-                    winner_name, matched_winner, match_key[0], match_key[1],
-                )
-        elif matched_loser is not None:
-            match_key = candidate_map.get(("loser", matched_loser))
-            if match_key:
-                linked_row["tourney_id"] = match_key[0]
-                linked_row["match_num"] = match_key[1]
-                linked_row["tour"] = match_key[2]
-                logger.debug(
-                    "Linked via loser '%s' -> '%s' (match %s/%s)",
-                    loser_name, matched_loser, match_key[0], match_key[1],
-                )
+        if best_key is not None:
+            linked_row["tourney_id"] = best_key[0]
+            linked_row["match_num"] = best_key[1]
+            linked_row["tour"] = best_key[2]
         else:
             logger.info(
                 "Unlinked: no match found for %s / %s on %s",

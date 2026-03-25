@@ -62,7 +62,7 @@ class TestModelRegistry:
 class TestBaseImports:
     def test_base_exports_logistic_features(self):
         from src.model.base import LOGISTIC_FEATURES
-        assert len(LOGISTIC_FEATURES) == 12
+        assert len(LOGISTIC_FEATURES) == 16
         assert "elo_diff" in LOGISTIC_FEATURES
 
     def test_base_exports_build_training_matrix(self):
@@ -78,7 +78,7 @@ class TestBaseImports:
 class TestTrainerShimBackwardCompat:
     def test_trainer_exports_logistic_features(self):
         from src.model.trainer import LOGISTIC_FEATURES
-        assert len(LOGISTIC_FEATURES) == 12
+        assert len(LOGISTIC_FEATURES) == 16
 
     def test_trainer_exports_train_and_calibrate(self):
         from src.model.trainer import train_and_calibrate
@@ -120,3 +120,24 @@ class TestSchemaHasCIColumns:
         assert row[0] is None
         assert row[1] is None
         assert row[2] is None
+
+
+class TestPinnacleRegistryVersions:
+    def test_registry_has_pinnacle_versions(self):
+        from src.model import MODEL_REGISTRY
+        assert "logistic_v3_pinnacle" in MODEL_REGISTRY
+        assert "xgboost_v2_pinnacle" in MODEL_REGISTRY
+
+    def test_registry_existing_versions_intact(self):
+        from src.model import MODEL_REGISTRY
+        for v in ("logistic_v1", "xgboost_v1", "bayesian_v1", "ensemble_v1"):
+            assert v in MODEL_REGISTRY, f"Existing version {v} missing from registry"
+
+    def test_registry_pinnacle_entries_have_train_predict(self):
+        from src.model import MODEL_REGISTRY
+        for v in ("logistic_v3_pinnacle", "xgboost_v2_pinnacle"):
+            entry = MODEL_REGISTRY[v]
+            assert "train" in entry, f"{v} missing 'train' key"
+            assert "predict" in entry, f"{v} missing 'predict' key"
+            assert callable(entry["train"]), f"{v} train not callable"
+            assert callable(entry["predict"]), f"{v} predict not callable"

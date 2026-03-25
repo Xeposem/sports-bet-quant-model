@@ -62,7 +62,9 @@ _FOLD_MATRIX_SQL = """
         COALESCE(w.form_win_rate_20, 0.5) - COALESCE(l.form_win_rate_20, 0.5) AS form_diff_20,
         COALESCE(w.days_since_last, 0) - COALESCE(l.days_since_last, 0)     AS fatigue_diff,
         CASE WHEN COALESCE(w.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_w,
-        CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l
+        CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l,
+        COALESCE(w.round_ordinal, 3) AS round_ordinal,
+        COALESCE(w.best_of, 3) AS best_of
     FROM match_features w
     JOIN match_features l
       ON  w.tourney_id = l.tourney_id
@@ -99,6 +101,8 @@ _FOLD_TEST_MATCHES_SQL = """
         COALESCE(w.days_since_last, 0) - COALESCE(l.days_since_last, 0)     AS fatigue_diff,
         CASE WHEN COALESCE(w.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_w,
         CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l,
+        COALESCE(w.round_ordinal, 3) AS round_ordinal,
+        COALESCE(w.best_of, 3) AS best_of,
         o.decimal_odds_a, o.decimal_odds_b
     FROM match_features w
     JOIN match_features l
@@ -160,6 +164,8 @@ _FOLD_XGB_TEST_MATCHES_SQL = """
         -- One-hot tourney_level
         CASE WHEN w.tourney_level = 'G' THEN 1 ELSE 0 END AS level_G,
         CASE WHEN w.tourney_level = 'M' THEN 1 ELSE 0 END AS level_M,
+        COALESCE(w.round_ordinal, 3) AS round_ordinal,
+        COALESCE(w.best_of, 3) AS best_of,
         o.decimal_odds_a, o.decimal_odds_b
     FROM match_features w
     JOIN match_features l
@@ -327,14 +333,16 @@ def build_fold_test_matches(
     for row in rows:
         # Columns: 0=tourney_id, 1=match_num, 2=tour, 3=winner_id, 4=loser_id,
         #          5=tourney_date, 6=surface, 7=tourney_level, 8=winner_rank,
-        #          9=loser_rank, 10..21=feature columns, 22=decimal_odds_a, 23=decimal_odds_b
+        #          9=loser_rank, 10..10+len(LOGISTIC_FEATURES)-1=feature columns,
+        #          then decimal_odds_a, decimal_odds_b
         feature_start = 10
         feature_vec = np.array(
             [row[feature_start + i] for i in range(len(LOGISTIC_FEATURES))],
             dtype=np.float64,
         )
-        decimal_odds_a = row[22]
-        decimal_odds_b = row[23]
+        odds_offset = feature_start + len(LOGISTIC_FEATURES)
+        decimal_odds_a = row[odds_offset]
+        decimal_odds_b = row[odds_offset + 1]
         has_odds = (decimal_odds_a is not None and decimal_odds_b is not None)
 
         matches.append({
@@ -911,6 +919,7 @@ def run_walk_forward(
         "max_fraction": max_fraction,
         "min_ev": min_ev,
         "model_version": model_version,
+        "n_trials": config.get("n_trials", 75),
     }
 
     folds = generate_folds(conn, min_train_matches=min_train_matches)

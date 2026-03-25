@@ -18,8 +18,7 @@ def download_tml_match_file(year: int, dest_dir: str) -> str:
     """
     Download the TML ATP match CSV for a given year.
 
-    TML uses YYYY.csv (not atp_matches_YYYY.csv like Sackmann). The output file
-    is prefixed with "tml_" to avoid collisions with Sackmann files in the same directory.
+    TML uses YYYY.csv naming. The output file is prefixed with "tml_" for clarity.
 
     Args:
         year: The season year (e.g., 2025).

@@ -6,27 +6,25 @@ Exports:
 - upsert_players(conn, df) -> int
 - upsert_matches(conn, records) -> tuple[int, int]
 - upsert_match_stats(conn, df) -> int
+- upsert_rankings(conn, df) -> int
 - log_ingestion(conn, year, source_file, rows_processed, rows_inserted, rows_skipped, status) -> None
 - get_unprocessed_years(conn, start_year, end_year) -> list[int]
 - ingest_year(conn, year, raw_dir, force) -> dict
-- ingest_year_tml(conn, year, raw_dir, force) -> dict
-- ingest_all(db_path, raw_dir, start_year, force, source) -> list[dict]
+- ingest_all(db_path, raw_dir, start_year, force) -> list[dict]
 """
 import os
 import sqlite3
 from datetime import datetime, timezone
 
 import pandas as pd
-import requests
 
 from src.db.connection import get_connection, init_db
 from src.ingestion.cleaner import MATCH_DTYPES, clean_match_dataframe
-from src.ingestion.downloader import download_match_file
 from src.ingestion.tml_downloader import download_tml_match_file, download_tml_player_file
 from src.ingestion.tml_id_mapper import build_id_map, normalise_tml_dataframe
 
 
-# Mapping from Sackmann winner/loser stat columns to match_stats schema columns
+# Mapping from winner/loser stat columns to match_stats schema columns
 _WINNER_STAT_MAP = {
     "w_ace": "ace",
     "w_df": "df",
@@ -109,8 +107,8 @@ def upsert_players(conn: sqlite3.Connection, df: pd.DataFrame) -> int:
     Extract unique player records from winner_* and loser_* columns and
     INSERT OR IGNORE into the players table.
 
-    Note: Sackmann CSVs provide only the full name in winner_name/loser_name.
-    The full name is stored in last_name for Phase 1; a proper split can occur later.
+    Note: TML CSVs provide only the full name in winner_name/loser_name.
+    The full name is stored in last_name; a proper split can occur later.
 
     Args:
         conn: Active SQLite connection.
@@ -192,6 +190,51 @@ def upsert_matches(conn: sqlite3.Connection, records: list) -> tuple:
     return inserted, skipped
 
 
+def upsert_rankings(conn: sqlite3.Connection, df: pd.DataFrame) -> int:
+    """
+    Extract per-match ranking snapshots from a match DataFrame and INSERT OR IGNORE
+    into the rankings table.
+
+    Each match row yields up to two ranking entries (winner and loser).
+    Rows where ranking is NaN/None are skipped (unranked players).
+    Keyed by (ranking_date=tourney_date, tour, player_id) — duplicates are ignored.
+
+    Args:
+        conn: Active SQLite connection.
+        df: Cleaned match DataFrame with winner_rank, loser_rank, etc.
+
+    Returns:
+        Number of rows inserted.
+    """
+    sql = """
+        INSERT OR IGNORE INTO rankings
+            (ranking_date, tour, player_id, ranking, ranking_points)
+        VALUES (?, ?, ?, ?, ?)
+    """
+    inserted = 0
+
+    for _, row in df.iterrows():
+        tour = _to_python(row.get("tour", "ATP"))
+        ranking_date = _to_python(row.get("tourney_date"))
+        if ranking_date is None:
+            continue
+
+        for id_col, rank_col, pts_col in [
+            ("winner_id", "winner_rank", "winner_rank_points"),
+            ("loser_id", "loser_rank", "loser_rank_points"),
+        ]:
+            player_id = _to_python(row.get(id_col))
+            ranking = _to_python(row.get(rank_col))
+            if player_id is None or ranking is None:
+                continue
+            ranking_points = _to_python(row.get(pts_col))
+            conn.execute(sql, (ranking_date, tour, player_id, ranking, ranking_points))
+            if conn.execute("SELECT changes()").fetchone()[0] > 0:
+                inserted += 1
+
+    return inserted
+
+
 def upsert_match_stats(conn: sqlite3.Connection, df: pd.DataFrame) -> int:
     """
     For each match row, insert two match_stats rows: one for winner and one for loser.
@@ -270,7 +313,7 @@ def log_ingestion(
 def get_unprocessed_years(
     conn: sqlite3.Connection,
     start_year: int = 1991,
-    end_year: int = 2025,
+    end_year: int | None = None,
 ) -> list:
     """
     Return years in [start_year, end_year] that have not yet been successfully ingested.
@@ -278,11 +321,13 @@ def get_unprocessed_years(
     Args:
         conn: Active SQLite connection.
         start_year: First year to check (inclusive).
-        end_year: Last year to check (inclusive).
+        end_year: Last year to check (inclusive). Defaults to the current year.
 
     Returns:
         List of integer years not present in ingestion_log with status='success'.
     """
+    if end_year is None:
+        end_year = datetime.now(timezone.utc).year
     cursor = conn.execute(
         "SELECT year FROM ingestion_log WHERE status='success' AND tour='ATP'"
     )
@@ -297,68 +342,7 @@ def ingest_year(
     force: bool = False,
 ) -> dict:
     """
-    Orchestrate the full pipeline for one season year:
-    Download -> Load CSV -> Clean -> Upsert tournaments/players/matches/stats -> Log.
-
-    Args:
-        conn: Active SQLite connection (caller manages commit/rollback).
-        year: The season year to ingest.
-        raw_dir: Directory for downloading raw CSV files.
-        force: If True, skip the already-processed check (default False).
-
-    Returns:
-        Summary dict with keys: year, inserted, skipped, excluded, rows_processed.
-    """
-    # 1. Download CSV
-    csv_path = download_match_file(year, raw_dir)
-
-    # 2. Load with explicit dtypes
-    df = pd.read_csv(
-        csv_path,
-        dtype=MATCH_DTYPES,
-        na_values=["", "nan", "NA"],
-        keep_default_na=True,
-    )
-
-    # 3. Clean (date conversion, classification, normalization, exclusions)
-    cleaned_df, excluded_df = clean_match_dataframe(df)
-
-    # 4. Upsert in dependency order: tournaments -> players -> matches -> stats
-    upsert_tournaments(conn, cleaned_df)
-    upsert_players(conn, cleaned_df)
-    records = cleaned_df.to_dict(orient="records")
-    inserted, skipped = upsert_matches(conn, records)
-    upsert_match_stats(conn, cleaned_df)
-
-    # 5. Log ingestion
-    log_ingestion(
-        conn,
-        year=year,
-        source_file=csv_path,
-        rows_processed=len(cleaned_df),
-        rows_inserted=inserted,
-        rows_skipped=skipped,
-        status="success",
-    )
-    conn.commit()
-
-    return {
-        "year": year,
-        "inserted": inserted,
-        "skipped": skipped,
-        "excluded": len(excluded_df),
-        "rows_processed": len(cleaned_df),
-    }
-
-
-def ingest_year_tml(
-    conn: sqlite3.Connection,
-    year: int,
-    raw_dir: str,
-    force: bool = False,
-) -> dict:
-    """
-    Ingest one year from TML source. Same output contract as ingest_year.
+    Orchestrate the full pipeline for one season year using TennisMyLife data.
 
     Steps: Download TML CSV -> Download ATP_Database.csv (if missing) -> Build ID map
     -> Read CSV with str player IDs -> Normalise IDs to integers -> Clean -> Upsert -> Log.
@@ -392,7 +376,14 @@ def ingest_year_tml(
         dtype=tml_dtypes,
         na_values=["", "nan", "NA"],
         keep_default_na=True,
+        encoding="latin-1",
     )
+
+    # 4b. Back-fill missing match_num with sequential integers per tournament
+    if df["match_num"].isna().any():
+        for tid, grp in df[df["match_num"].isna()].groupby("tourney_id"):
+            df.loc[grp.index, "match_num"] = range(1, len(grp) + 1)
+        df["match_num"] = df["match_num"].astype("Int64")
 
     # 5. Translate TML alphanumeric IDs to synthetic integers
     df = normalise_tml_dataframe(df, conn)
@@ -408,6 +399,7 @@ def ingest_year_tml(
     records = cleaned_df.to_dict(orient="records")
     inserted, skipped = upsert_matches(conn, records)
     upsert_match_stats(conn, cleaned_df)
+    upsert_rankings(conn, cleaned_df)
 
     # 8. Log with TML source file path
     log_ingestion(
@@ -435,23 +427,18 @@ def ingest_all(
     raw_dir: str,
     start_year: int = 1991,
     force: bool = False,
-    source: str = "auto",
 ) -> list:
     """
-    Initialize the database and ingest all unprocessed years.
+    Initialize the database and ingest all unprocessed years from TennisMyLife.
 
     Args:
         db_path: Path to the SQLite database file.
         raw_dir: Directory for downloaded CSV files.
         start_year: First year to consider (default 1991).
         force: If True, re-ingest all years regardless of existing log entries.
-        source: Data source to use. One of:
-            - "sackmann": Use Sackmann CSV downloads only (historical data).
-            - "tml": Use TennisMyLife CSV downloads only (2025+).
-            - "auto": Try Sackmann first; fall back to TML on HTTPError (default).
 
     Returns:
-        List of per-year summary dicts from ingest_year or ingest_year_tml.
+        List of per-year summary dicts from ingest_year.
     """
     try:
         from tqdm import tqdm
@@ -464,28 +451,21 @@ def ingest_all(
 
     try:
         if force:
-            years = list(range(start_year, 2027))
+            current_year = datetime.now(timezone.utc).year
+            years = list(range(start_year, current_year + 1))
         else:
             years = get_unprocessed_years(conn, start_year=start_year)
 
         results = []
         for year in _tqdm(years):
             try:
-                if source == "tml":
-                    result = ingest_year_tml(conn, year=year, raw_dir=raw_dir, force=force)
-                elif source == "sackmann":
-                    result = ingest_year(conn, year=year, raw_dir=raw_dir, force=force)
-                else:  # auto
-                    try:
-                        result = ingest_year(conn, year=year, raw_dir=raw_dir, force=force)
-                    except requests.exceptions.HTTPError:
-                        result = ingest_year_tml(conn, year=year, raw_dir=raw_dir, force=force)
+                result = ingest_year(conn, year=year, raw_dir=raw_dir, force=force)
                 results.append(result)
             except Exception as exc:
                 log_ingestion(
                     conn,
                     year=year,
-                    source_file=f"atp_matches_{year}.csv",
+                    source_file=f"tml_{year}.csv",
                     rows_processed=0,
                     rows_inserted=0,
                     rows_skipped=0,

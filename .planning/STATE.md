@@ -2,16 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Completed 11-02-PLAN.md
-last_updated: "2026-03-23T09:43:40.348Z"
-last_activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
+status: Ready to execute
+stopped_at: Completed 12-01-PLAN.md
+last_updated: "2026-03-25T01:39:28.202Z"
 progress:
-  total_phases: 11
+  total_phases: 15
   completed_phases: 11
-  total_plans: 36
+  total_plans: 39
   completed_plans: 36
-  percent: 0
 ---
 
 # Project State
@@ -21,20 +19,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Accurate, data-driven predictions that identify positive expected value betting opportunities in tennis — measured by demonstrable edge over bookmaker lines in backtesting
-**Current focus:** Phase 1 — Data Ingestion & Storage
+**Current focus:** Phase 12 — add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual
 
 ## Current Position
 
-Phase: 1 of 9 (Data Ingestion & Storage)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-03-15 — Roadmap created, 48 requirements mapped across 9 phases
-
-Progress: [░░░░░░░░░░] 0%
+Phase: 12 (add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 0
 - Average duration: -
 - Total execution time: 0 hours
@@ -46,6 +41,7 @@ Progress: [░░░░░░░░░░] 0%
 | - | - | - | - |
 
 **Recent Trend:**
+
 - Last 5 plans: none yet
 - Trend: -
 
@@ -87,6 +83,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 10-prizepicks-screenshot-cv-tool-for-automatic-atp-prop-extraction P02 | 7 | 3 tasks | 6 files |
 | Phase 11-update-data-ingestion-to-use-stats-tennismylife-org-for-most-recent-atp-match-data P01 | 25 | 2 tasks | 4 files |
 | Phase 11-update-data-ingestion-to-use-stats-tennismylife-org-for-most-recent-atp-match-data P02 | 4 | 2 tasks | 4 files |
+| Phase 12 P01 | 8 | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -191,11 +188,17 @@ Recent decisions affecting current work:
 - [Phase 11-update-data-ingestion-to-use-stats-tennismylife-org-for-most-recent-atp-match-data]: tml_downloader output filename prefixed tml_YYYY.csv — avoids collision with Sackmann atp_matches_YYYY.csv in same raw_dir
 - [Phase 11-update-data-ingestion-to-use-stats-tennismylife-org-for-most-recent-atp-match-data]: ingest_year_tml reads winner_id/loser_id as str dtype then casts to Int64 after normalise_tml_dataframe — avoids ValueError on alphanumeric TML IDs
 - [Phase 11-update-data-ingestion-to-use-stats-tennismylife-org-for-most-recent-atp-match-data]: auto mode catches requests.exceptions.HTTPError (not generic Exception) for precise Sackmann 404 detection without masking TML errors
+- [Phase 12]: _get_pinnacle_prob uses function-level import of power_method_devig to match existing lazy import pattern
+- [Phase 12]: Graceful fallback (None, None, 1) for both missing odds and invalid odds — consistent with has_no_elo pattern
 
 ### Roadmap Evolution
 
 - Phase 10 added: PrizePicks screenshot CV tool for automatic ATP prop extraction
 - Phase 11 added: Update data ingestion to use stats.tennismylife.org for most recent ATP match data
+- Phase 12 added: Add Pinnacle odds as a feature and retrain on the residual
+- Phase 13 added: Implement EV threshold filtering — only bet when divergence exceeds X percent
+- Phase 14 added: Add court speed index per tournament
+- Phase 15 added: Explore prop markets — NegBin models may have more edge on aces and games than the moneyline model
 
 ### Pending Todos
 
@@ -210,6 +213,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T09:43:40.342Z
-Stopped at: Completed 11-02-PLAN.md
+Last session: 2026-03-25T01:39:28.195Z
+Stopped at: Completed 12-01-PLAN.md
 Resume file: None

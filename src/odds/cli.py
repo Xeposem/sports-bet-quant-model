@@ -26,7 +26,7 @@ import logging
 import os
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from src.model.predictor import predict_all_matches
@@ -54,8 +54,106 @@ def get_db_path() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Odds data download
+# ---------------------------------------------------------------------------
+
+_TD_BASE_URL = "http://www.tennis-data.co.uk"
+_TD_FIRST_YEAR = 2000
+
+
+def _td_url(year: int) -> str:
+    """Return the tennis-data.co.uk download URL for an ATP season."""
+    ext = "xls" if year <= 2012 else "xlsx"
+    return f"{_TD_BASE_URL}/{year}/{year}.{ext}"
+
+
+def download_odds(dest_dir: str, start_year: int = _TD_FIRST_YEAR, end_year: int | None = None) -> list:
+    """Download ATP odds Excel files from tennis-data.co.uk.
+
+    Returns list of dicts with year, path, and status.
+    """
+    import requests
+
+    if end_year is None:
+        end_year = datetime.now(timezone.utc).year
+
+    os.makedirs(dest_dir, exist_ok=True)
+    results = []
+
+    for year in range(start_year, end_year + 1):
+        url = _td_url(year)
+        filename = url.rsplit("/", 1)[-1]
+        dest_path = os.path.join(dest_dir, filename)
+
+        if os.path.exists(dest_path):
+            results.append({"year": year, "path": dest_path, "status": "exists"})
+            continue
+
+        try:
+            resp = requests.get(url, timeout=30)
+            resp.raise_for_status()
+            with open(dest_path, "wb") as f:
+                f.write(resp.content)
+            results.append({"year": year, "path": dest_path, "status": "downloaded"})
+        except requests.exceptions.HTTPError as exc:
+            results.append({"year": year, "path": None, "status": f"failed ({exc.response.status_code})"})
+        except Exception as exc:
+            results.append({"year": year, "path": None, "status": f"error ({exc})"})
+
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Subcommand handlers
 # ---------------------------------------------------------------------------
+
+
+def _cmd_download(args: argparse.Namespace) -> None:
+    """Handle the `download` subcommand — fetch odds files from tennis-data.co.uk."""
+    dest_dir = args.dest_dir
+    results = download_odds(dest_dir, start_year=args.start_year, end_year=args.end_year)
+
+    downloaded = sum(1 for r in results if r["status"] == "downloaded")
+    existed = sum(1 for r in results if r["status"] == "exists")
+    failed = sum(1 for r in results if r["status"] not in ("downloaded", "exists"))
+
+    for r in results:
+        symbol = "+" if r["status"] == "downloaded" else ("=" if r["status"] == "exists" else "!")
+        print(f"  {symbol} {r['year']}: {r['status']}")
+
+    print(f"\nDownload complete: {downloaded} new, {existed} already existed, {failed} failed")
+
+    # Auto-import if requested
+    if args.auto_import:
+        db_path = get_db_path()
+        with sqlite3.connect(db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            # Check which years already have odds data
+            imported_years = set()
+            for row in conn.execute(
+                """SELECT DISTINCT CAST(SUBSTR(m.tourney_date, 1, 4) AS INTEGER) AS yr
+                   FROM match_odds o
+                   JOIN matches m ON o.tourney_id = m.tourney_id
+                     AND o.match_num = m.match_num AND o.tour = m.tour
+                   WHERE o.source = 'csv'"""
+            ).fetchall():
+                imported_years.add(row[0])
+
+            total_imported = 0
+            total_unlinked = 0
+            skipped = 0
+            for r in results:
+                if r["path"] is None:
+                    continue
+                if r["year"] in imported_years and not args.force:
+                    skipped += 1
+                    print(f"  = {r['year']}: already imported, skipping")
+                    continue
+                stats = import_csv_odds(conn, r["path"])
+                total_imported += stats["imported"]
+                total_unlinked += stats["unlinked"]
+                print(f"  {r['year']}: imported={stats['imported']}, unlinked={stats['unlinked']}")
+        print(f"\nImport complete: {total_imported} imported, {total_unlinked} unlinked, {skipped} skipped")
 
 
 def _cmd_enter(args: argparse.Namespace) -> None:
@@ -144,8 +242,12 @@ def _cmd_train(args: argparse.Namespace) -> None:
     )
 
     # Save model
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    model_path = os.path.join(output_dir, f"logistic_v1_{timestamp}.joblib")
+    if args.save_path:
+        model_path = args.save_path
+        os.makedirs(os.path.dirname(model_path) or ".", exist_ok=True)
+    else:
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        model_path = os.path.join(output_dir, f"logistic_v1_{timestamp}.joblib")
     save_model(model, model_path)
 
     # Save metrics JSON alongside model
@@ -196,6 +298,32 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
     subparsers.required = True
 
+    # --- download ---
+    dl_parser = subparsers.add_parser(
+        "download",
+        help="Download ATP odds files from tennis-data.co.uk.",
+    )
+    dl_parser.add_argument(
+        "--dest-dir", default=os.path.join("data", "odds"),
+        help="Directory to save downloaded files (default: data/odds).",
+    )
+    dl_parser.add_argument(
+        "--start-year", type=int, default=_TD_FIRST_YEAR,
+        help=f"First year to download (default: {_TD_FIRST_YEAR}).",
+    )
+    dl_parser.add_argument(
+        "--end-year", type=int, default=None,
+        help="Last year to download (default: current year).",
+    )
+    dl_parser.add_argument(
+        "--auto-import", action="store_true",
+        help="Automatically import downloaded files into the database.",
+    )
+    dl_parser.add_argument(
+        "--force", action="store_true",
+        help="Re-import years that already have odds data.",
+    )
+
     # --- enter ---
     enter_parser = subparsers.add_parser(
         "enter",
@@ -211,11 +339,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     enter_parser.add_argument(
         "--odds-a", required=True, type=float,
-        help="Decimal odds for player A (winner in Sackmann convention). Must be >= 1.01.",
+        help="Decimal odds for player A (winner). Must be >= 1.01.",
     )
     enter_parser.add_argument(
         "--odds-b", required=True, type=float,
-        help="Decimal odds for player B (loser in Sackmann convention). Must be >= 1.01.",
+        help="Decimal odds for player B (loser). Must be >= 1.01.",
     )
     enter_parser.add_argument(
         "--bookmaker", default="pinnacle",
@@ -240,6 +368,10 @@ def _build_parser() -> argparse.ArgumentParser:
     train_parser.add_argument(
         "--output-dir", default="data/models",
         help="Directory for model artifact output (default: data/models).",
+    )
+    train_parser.add_argument(
+        "--save-path",
+        help="Exact file path for the saved model (overrides --output-dir).",
     )
     train_parser.add_argument(
         "--half-life", type=int, default=730,
@@ -278,7 +410,9 @@ def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
 
-    if args.command == "enter":
+    if args.command == "download":
+        _cmd_download(args)
+    elif args.command == "enter":
         _cmd_enter(args)
     elif args.command == "import-csv":
         _cmd_import_csv(args)

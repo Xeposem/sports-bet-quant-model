@@ -2,11 +2,10 @@
 Integration tests for TML ingestion path in loader.py.
 
 Tests cover:
-- ingest_year_tml inserts matches with synthetic integer IDs
+- ingest_year inserts matches with synthetic integer IDs
 - Player IDs stored as integers in DB, not text
 - Ingestion log records TML source file path
-- ingest_all auto mode falls back to TML when Sackmann returns HTTPError
-- ingest_all sackmann mode does not call TML functions
+- ingest_all processes years via TML
 """
 import os
 import sqlite3
@@ -55,15 +54,15 @@ def tml_files(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Task 1 tests
+# Tests
 # ---------------------------------------------------------------------------
 
-def test_ingest_year_tml_inserts_matches(tmp_path, tml_db, tml_files):
+def test_ingest_year_inserts_matches(tmp_path, tml_db, tml_files):
     """
-    ingest_year_tml with mocked downloads should insert at least 1 match
+    ingest_year with mocked downloads should insert at least 1 match
     and those matches should have winner_id >= 900000 (synthetic TML range).
     """
-    from src.ingestion.loader import ingest_year_tml
+    from src.ingestion.loader import ingest_year
 
     conn, db_path = tml_db
     match_csv_path, player_csv_path = tml_files
@@ -72,7 +71,7 @@ def test_ingest_year_tml_inserts_matches(tmp_path, tml_db, tml_files):
         patch("src.ingestion.loader.download_tml_match_file", return_value=match_csv_path),
         patch("src.ingestion.loader.download_tml_player_file", return_value=player_csv_path),
     ):
-        result = ingest_year_tml(conn, year=2025, raw_dir=str(tmp_path))
+        result = ingest_year(conn, year=2025, raw_dir=str(tmp_path))
 
     assert result["inserted"] >= 1, f"Expected at least 1 inserted, got {result}"
     assert result["year"] == 2025
@@ -83,12 +82,12 @@ def test_ingest_year_tml_inserts_matches(tmp_path, tml_db, tml_files):
         assert row[0] >= 900000, f"winner_id {row[0]} is below 900000 (not synthetic TML range)"
 
 
-def test_ingest_year_tml_player_ids_are_integers(tmp_path, tml_db, tml_files):
+def test_ingest_year_player_ids_are_integers(tmp_path, tml_db, tml_files):
     """
     winner_id stored in the matches table should be of type integer, not text.
-    Verifies the Int64 cast step in ingest_year_tml actually lands integer in DB.
+    Verifies the Int64 cast step in ingest_year actually lands integer in DB.
     """
-    from src.ingestion.loader import ingest_year_tml
+    from src.ingestion.loader import ingest_year
 
     conn, db_path = tml_db
     match_csv_path, player_csv_path = tml_files
@@ -97,7 +96,7 @@ def test_ingest_year_tml_player_ids_are_integers(tmp_path, tml_db, tml_files):
         patch("src.ingestion.loader.download_tml_match_file", return_value=match_csv_path),
         patch("src.ingestion.loader.download_tml_player_file", return_value=player_csv_path),
     ):
-        ingest_year_tml(conn, year=2025, raw_dir=str(tmp_path))
+        ingest_year(conn, year=2025, raw_dir=str(tmp_path))
 
     rows = conn.execute("SELECT typeof(winner_id) FROM matches").fetchall()
     assert rows, "No matches found"
@@ -107,12 +106,11 @@ def test_ingest_year_tml_player_ids_are_integers(tmp_path, tml_db, tml_files):
         )
 
 
-def test_ingest_year_tml_logs_tml_source(tmp_path, tml_db, tml_files):
+def test_ingest_year_logs_tml_source(tmp_path, tml_db, tml_files):
     """
     ingestion_log.source_file should contain the TML CSV path (contains "tml_").
-    Verifies the source_file is the TML file, not a Sackmann atp_matches_ path.
     """
-    from src.ingestion.loader import ingest_year_tml
+    from src.ingestion.loader import ingest_year
 
     conn, db_path = tml_db
     match_csv_path, player_csv_path = tml_files
@@ -121,7 +119,7 @@ def test_ingest_year_tml_logs_tml_source(tmp_path, tml_db, tml_files):
         patch("src.ingestion.loader.download_tml_match_file", return_value=match_csv_path),
         patch("src.ingestion.loader.download_tml_player_file", return_value=player_csv_path),
     ):
-        ingest_year_tml(conn, year=2025, raw_dir=str(tmp_path))
+        ingest_year(conn, year=2025, raw_dir=str(tmp_path))
 
     rows = conn.execute(
         "SELECT source_file FROM ingestion_log WHERE year=2025"
@@ -133,20 +131,16 @@ def test_ingest_year_tml_logs_tml_source(tmp_path, tml_db, tml_files):
     )
 
 
-def test_ingest_all_auto_falls_back_to_tml(tmp_path, tml_files):
+def test_ingest_all_processes_years(tmp_path, tml_files):
     """
-    ingest_all with source='auto' should fall back to TML when Sackmann
-    raises requests.exceptions.HTTPError (simulating a 404 for year 2025).
+    ingest_all should process years via TML download.
     """
-    import requests
     from src.ingestion.loader import ingest_all
 
     match_csv_path, player_csv_path = tml_files
-    db_path = str(tmp_path / "auto_test.db")
+    db_path = str(tmp_path / "all_test.db")
 
     with (
-        patch("src.ingestion.loader.download_match_file",
-              side_effect=requests.exceptions.HTTPError("404")),
         patch("src.ingestion.loader.download_tml_match_file",
               return_value=match_csv_path) as mock_tml_match,
         patch("src.ingestion.loader.download_tml_player_file",
@@ -157,74 +151,11 @@ def test_ingest_all_auto_falls_back_to_tml(tmp_path, tml_files):
             raw_dir=str(tmp_path),
             start_year=2025,
             force=True,
-            source="auto",
         )
 
-    # At least one year should have been ingested via TML
-    assert mock_tml_match.called, "TML fallback was not triggered in auto mode"
-    # Result for 2025 should not have an error
+    assert mock_tml_match.called, "TML download should have been called"
     year_results = [r for r in results if r.get("year") == 2025]
     assert year_results, "No result for year 2025"
     assert "error" not in year_results[0], (
-        f"Expected success for TML fallback, got error: {year_results[0].get('error')}"
+        f"Expected success, got error: {year_results[0].get('error')}"
     )
-
-
-def test_ingest_all_sackmann_mode_unchanged(tmp_path):
-    """
-    ingest_all with source='sackmann' should never call TML functions.
-    Verifies that the sackmann path is completely isolated from TML code.
-    """
-    from src.ingestion.loader import ingest_all
-
-    db_path = str(tmp_path / "sackmann_test.db")
-
-    # Stub Sackmann download to return a minimal CSV
-    minimal_sackmann_csv = tmp_path / "atp_matches_2024.csv"
-    # Write a valid minimal CSV that ingest_year can process
-    from tests.conftest import MATCH_DTYPES
-    import pandas as pd
-
-    dummy_row = {col: (1 if dtype == "Int64" else 0.0 if dtype == float else "test")
-                 for col, dtype in MATCH_DTYPES.items()}
-    dummy_row.update({
-        "tourney_id": "2024-9900",
-        "tourney_name": "Test",
-        "surface": "Hard",
-        "draw_size": 32,
-        "tourney_level": "A",
-        "tourney_date": "20240101",
-        "match_num": 1,
-        "winner_id": 100001,
-        "winner_name": "Player A",
-        "winner_hand": "R",
-        "winner_ioc": "USA",
-        "winner_age": 25.0,
-        "loser_id": 100002,
-        "loser_name": "Player B",
-        "loser_hand": "R",
-        "loser_ioc": "ESP",
-        "loser_age": 27.0,
-        "score": "6-3 6-4",
-        "best_of": 3,
-        "round": "R32",
-    })
-    pd.DataFrame([dummy_row]).to_csv(str(minimal_sackmann_csv), index=False)
-
-    with (
-        patch("src.ingestion.loader.download_match_file",
-              return_value=str(minimal_sackmann_csv)) as mock_sackmann,
-        patch("src.ingestion.loader.download_tml_match_file") as mock_tml_match,
-        patch("src.ingestion.loader.download_tml_player_file") as mock_tml_player,
-    ):
-        ingest_all(
-            db_path=db_path,
-            raw_dir=str(tmp_path),
-            start_year=2024,
-            force=True,
-            source="sackmann",
-        )
-
-    assert mock_sackmann.called, "Sackmann download should have been called"
-    assert not mock_tml_match.called, "TML match download should NOT be called in sackmann mode"
-    assert not mock_tml_player.called, "TML player download should NOT be called in sackmann mode"

@@ -2,7 +2,7 @@
 Score parsing, match classification, retirement normalization, and date conversion.
 
 Exports:
-- MATCH_DTYPES: dict — full 44-column dtype map for Sackmann CSV loading
+- MATCH_DTYPES: dict — full 44-column dtype map for match CSV loading
 - classify_match(score) -> str
 - normalize_retirement_stats(row) -> pd.Series
 - clean_match_dataframe(df) -> tuple[pd.DataFrame, pd.DataFrame]
@@ -10,7 +10,7 @@ Exports:
 import pandas as pd
 
 # ---------------------------------------------------------------------------
-# Full 44-column dtype map for pd.read_csv on Sackmann atp_matches_YYYY.csv
+# Full 44-column dtype map for pd.read_csv on ATP match CSV files
 # ---------------------------------------------------------------------------
 MATCH_DTYPES = {
     "tourney_id": str,
@@ -85,7 +85,7 @@ def classify_match(score) -> str:
     Returns one of: 'completed', 'retirement', 'walkover', 'default', 'unknown'.
 
     Args:
-        score: Raw score value from Sackmann CSV. May be None or non-string.
+        score: Raw score value from match CSV. May be None or non-string.
     """
     if not isinstance(score, str) or not score.strip():
         return "unknown"
@@ -143,7 +143,7 @@ def _is_na(val) -> bool:
 
 def clean_match_dataframe(df: pd.DataFrame):
     """
-    Clean a raw Sackmann match DataFrame.
+    Clean a raw match DataFrame.
 
     Steps:
     1. Normalize column set to exactly MATCH_DTYPES keys (fills missing with NaN)
@@ -156,7 +156,7 @@ def clean_match_dataframe(df: pd.DataFrame):
     8. Compute stats_missing flag
 
     Args:
-        df: Raw DataFrame loaded from a Sackmann CSV.
+        df: Raw DataFrame loaded from a match CSV.
 
     Returns:
         (cleaned_df, excluded_df): cleaned_df has no walkovers/defaults;

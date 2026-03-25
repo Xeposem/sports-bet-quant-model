@@ -238,6 +238,8 @@ async def scan_prop_screenshot(
         data = await asyncio.to_thread(_run)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Scanner error: {exc}")
 
     if data.get("status") == "tesseract_not_found":
         raise HTTPException(status_code=503, detail="Tesseract OCR not installed on server")

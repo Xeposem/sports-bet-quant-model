@@ -28,7 +28,7 @@ def test_schema_creates_all_tables(db_conn):
         row[0] for row in cursor.fetchall()
         if not row[0].startswith("sqlite_")
     }
-    # Phase 1 tables + Phase 2 tables + Phase 3 tables + Phase 4 tables
+    # All tables through Phase 9
     expected = {
         "players",
         "tournaments",
@@ -44,6 +44,12 @@ def test_schema_creates_all_tables(db_conn):
         "predictions",
         "backtest_results",
         "calibration_data",
+        "prop_lines",
+        "prop_predictions",
+        "signals",
+        "paper_sessions",
+        "paper_bets",
+        "simulation_results",
     }
     assert expected == tables, f"Expected {expected}, got {tables}"
 
@@ -131,8 +137,8 @@ def test_db_conn_fixture_has_schema(db_conn):
     )
     table_count = cursor.fetchone()[0]
     # Phase 1: 7 tables; Phase 2 adds match_features, articles, article_sentiment;
-    # Phase 3 adds match_odds, predictions; Phase 4 adds backtest_results, calibration_data
-    assert table_count == 14, f"Expected 14 tables, got {table_count}"
+    # Phases 1-9: 20 tables total
+    assert table_count == 20, f"Expected 20 tables, got {table_count}"
 
 
 def test_sample_match_df_has_five_rows(sample_match_df):
@@ -141,7 +147,7 @@ def test_sample_match_df_has_five_rows(sample_match_df):
 
 
 def test_sample_match_df_has_all_columns(sample_match_df):
-    """Sample CSV fixture has all 44 expected Sackmann schema columns."""
+    """Sample CSV fixture has all 44 expected match schema columns."""
     expected_cols = [
         "tourney_id", "tourney_name", "surface", "draw_size", "tourney_level",
         "tourney_date", "match_num", "winner_id", "winner_seed", "winner_entry",

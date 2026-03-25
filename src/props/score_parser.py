@@ -1,4 +1,4 @@
-"""Score parser for Sackmann tennis score strings.
+"""Score parser for ATP tennis score strings.
 
 Extracts (winner_games, loser_games) from standard ATP score strings.
 Returns None for retirements, walkovers, defaults, and invalid/empty inputs.
@@ -14,7 +14,7 @@ _SET_PATTERN = re.compile(r"(\d+)-(\d+)(?:\(\d+\))?")
 
 def parse_score(score: str) -> Optional[Tuple[int, int]]:
     """
-    Parse a Sackmann score string and return (winner_games, loser_games).
+    Parse an ATP score string and return (winner_games, loser_games).
 
     Parameters
     ----------

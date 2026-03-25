@@ -339,8 +339,16 @@ class TestDataIntegrity:
 class TestIngestYear:
     def test_ingest_year_orchestrates_pipeline(self, db_conn, sample_csv_path, tmp_path):
         """ingest_year calls download->clean->load and returns a summary dict."""
-        # Mock download_match_file to return our pre-written CSV
-        with patch("src.ingestion.loader.download_match_file", return_value=str(sample_csv_path)):
+        # Write a dummy player CSV for ID mapping
+        player_csv = tmp_path / "ATP_Database.csv"
+        player_csv.write_text("id,atpname,player\n")
+
+        with (
+            patch("src.ingestion.loader.download_tml_match_file", return_value=str(sample_csv_path)),
+            patch("src.ingestion.loader.download_tml_player_file", return_value=str(player_csv)),
+            patch("src.ingestion.loader.build_id_map", return_value=0),
+            patch("src.ingestion.loader.normalise_tml_dataframe", side_effect=lambda df, conn: df),
+        ):
             result = ingest_year(db_conn, year=2024, raw_dir=str(tmp_path))
 
         assert "year" in result
@@ -354,7 +362,15 @@ class TestIngestYear:
 
     def test_ingest_year_logs_to_ingestion_log(self, db_conn, sample_csv_path, tmp_path):
         """After ingest_year, an ingestion_log entry exists."""
-        with patch("src.ingestion.loader.download_match_file", return_value=str(sample_csv_path)):
+        player_csv = tmp_path / "ATP_Database.csv"
+        player_csv.write_text("id,atpname,player\n")
+
+        with (
+            patch("src.ingestion.loader.download_tml_match_file", return_value=str(sample_csv_path)),
+            patch("src.ingestion.loader.download_tml_player_file", return_value=str(player_csv)),
+            patch("src.ingestion.loader.build_id_map", return_value=0),
+            patch("src.ingestion.loader.normalise_tml_dataframe", side_effect=lambda df, conn: df),
+        ):
             ingest_year(db_conn, year=2024, raw_dir=str(tmp_path))
 
         count = db_conn.execute("SELECT COUNT(*) FROM ingestion_log").fetchone()[0]

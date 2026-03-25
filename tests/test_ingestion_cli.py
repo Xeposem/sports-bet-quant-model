@@ -1,12 +1,11 @@
 """
-Tests for the --source CLI flag in src.ingestion.__main__.
+Tests for the CLI in src.ingestion.__main__.
 
 Verifies:
-- Default source is 'auto'
-- --source tml is accepted
-- --source sackmann is accepted
-- --source invalid raises SystemExit
-- main() passes source kwarg to ingest_all
+- Default flags parse correctly
+- --force and --validate-only flags are accepted
+- Invalid flags raise SystemExit
+- main() passes args to ingest_all
 """
 import pytest
 from unittest.mock import MagicMock, patch
@@ -14,42 +13,38 @@ from unittest.mock import MagicMock, patch
 from src.ingestion.__main__ import _build_parser, main
 
 
-def test_source_flag_default_is_auto():
-    """Default --source value is 'auto' when not specified."""
+def test_default_args():
+    """Default args: db-path=data/tennis.db, start-year=1991, no force."""
     args = _build_parser().parse_args([])
-    assert args.source == "auto"
+    assert args.db_path == "data/tennis.db"
+    assert args.start_year == 1991
+    assert args.force is False
+    assert args.validate_only is False
 
 
-def test_source_flag_accepts_tml():
-    """--source tml parses to 'tml'."""
-    args = _build_parser().parse_args(["--source", "tml"])
-    assert args.source == "tml"
+def test_start_year_flag():
+    """--start-year parses correctly."""
+    args = _build_parser().parse_args(["--start-year", "2020"])
+    assert args.start_year == 2020
 
 
-def test_source_flag_accepts_sackmann():
-    """--source sackmann parses to 'sackmann'."""
-    args = _build_parser().parse_args(["--source", "sackmann"])
-    assert args.source == "sackmann"
+def test_force_flag():
+    """--force sets force=True."""
+    args = _build_parser().parse_args(["--force"])
+    assert args.force is True
 
 
-def test_source_flag_accepts_auto():
-    """--source auto parses to 'auto' explicitly."""
-    args = _build_parser().parse_args(["--source", "auto"])
-    assert args.source == "auto"
+def test_validate_only_flag():
+    """--validate-only sets validate_only=True."""
+    args = _build_parser().parse_args(["--validate-only"])
+    assert args.validate_only is True
 
 
-def test_source_flag_rejects_invalid():
-    """An unrecognised --source value should raise SystemExit (argparse error)."""
-    with pytest.raises(SystemExit):
-        _build_parser().parse_args(["--source", "invalid"])
-
-
-def test_main_passes_source_to_ingest_all(tmp_path):
+def test_main_passes_args_to_ingest_all(tmp_path):
     """
-    main() should pass source=args.source to ingest_all.
+    main() should pass correct kwargs to ingest_all.
 
     We verify by mocking ingest_all and capturing the kwargs passed.
-    The --validate-only flag is NOT used here so that the ingest_all call fires.
     We also mock validate_database to avoid DB side effects.
     """
     db_path = str(tmp_path / "cli_test.db")
@@ -75,11 +70,8 @@ def test_main_passes_source_to_ingest_all(tmp_path):
             "--db-path", db_path,
             "--raw-dir", str(tmp_path),
             "--start-year", "2025",
-            "--source", "tml",
         ])
 
     assert mock_ia.called, "ingest_all should have been called"
     _, kwargs = mock_ia.call_args
-    assert kwargs.get("source") == "tml", (
-        f"Expected source='tml', got '{kwargs.get('source')}'"
-    )
+    assert kwargs.get("start_year") == 2025

@@ -347,7 +347,7 @@ def make_synthetic_data(n=300, seed=42):
     Returns X, y as numpy arrays.
     """
     rng = np.random.default_rng(seed)
-    X = rng.standard_normal((n, 12))
+    X = rng.standard_normal((n, 14))
     # Simple linear boundary: positive if first feature > 0
     y = (X[:, 0] > 0).astype(float)
     return X, y
@@ -891,3 +891,37 @@ class TestPredictAllMatches:
 
         count = conn.execute("SELECT COUNT(*) FROM predictions").fetchone()[0]
         assert count == 2  # still just 2 rows (idempotent)
+
+
+# ---------------------------------------------------------------------------
+# Pinnacle feature constant tests (Plan 12-02)
+# ---------------------------------------------------------------------------
+
+
+class TestPinnacleFeatureConstants:
+    def test_logistic_features_includes_pinnacle(self):
+        from src.model.base import LOGISTIC_FEATURES
+        assert "pinnacle_prob_diff" in LOGISTIC_FEATURES
+        assert "has_no_pinnacle" in LOGISTIC_FEATURES
+        assert len(LOGISTIC_FEATURES) == 16
+
+    def test_build_matrix_sql_has_pinnacle(self):
+        from src.model.base import _BUILD_MATRIX_SQL
+        assert "pinnacle_prob_diff" in _BUILD_MATRIX_SQL
+        assert "has_no_pinnacle" in _BUILD_MATRIX_SQL
+
+    def test_non_diff_cols_has_no_pinnacle(self):
+        """augment_with_flipped preserves has_no_pinnacle as non-differential."""
+        from src.model.base import augment_with_flipped, LOGISTIC_FEATURES
+        # Create 1-row X where has_no_pinnacle=1
+        n_feat = len(LOGISTIC_FEATURES)
+        X = np.zeros((1, n_feat))
+        pinnacle_idx = LOGISTIC_FEATURES.index("has_no_pinnacle")
+        X[0, pinnacle_idx] = 1.0
+        y = np.ones(1)
+        w = np.ones(1)
+        X_aug, y_aug, w_aug = augment_with_flipped(X, y, w, LOGISTIC_FEATURES)
+        # Flipped row (index 1) should preserve has_no_pinnacle=1 (not negated to -1)
+        assert X_aug[1, pinnacle_idx] == 1.0, (
+            f"has_no_pinnacle was negated in flipped row: got {X_aug[1, pinnacle_idx]}"
+        )

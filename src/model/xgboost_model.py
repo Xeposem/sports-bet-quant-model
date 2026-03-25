@@ -22,6 +22,7 @@ from xgboost import XGBClassifier
 
 from src.model.base import (
     XGB_FEATURES,
+    augment_with_flipped,
     build_xgb_training_matrix,
     compute_time_weights,
     save_model,
@@ -32,8 +33,8 @@ logger = logging.getLogger(__name__)
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 
-def _objective(trial, X_train, y_train, w_train, n_splits=3):
-    """Optuna objective: minimize Brier score via TimeSeriesSplit CV on training data."""
+def _objective(trial, X_aug, y_aug, w_aug, n_splits=3):
+    """Optuna objective: minimize Brier score via TimeSeriesSplit CV on augmented data."""
     params = {
         "n_estimators":     trial.suggest_int("n_estimators", 100, 500),
         "max_depth":        trial.suggest_int("max_depth", 3, 8),
@@ -49,11 +50,11 @@ def _objective(trial, X_train, y_train, w_train, n_splits=3):
     )
     tscv = TimeSeriesSplit(n_splits=n_splits)
     scores = []
-    for train_idx, val_idx in tscv.split(X_train):
-        clf.fit(X_train[train_idx], y_train[train_idx],
-                sample_weight=w_train[train_idx])
-        proba = clf.predict_proba(X_train[val_idx])[:, 1]
-        scores.append(brier_score_loss(y_train[val_idx], proba))
+    for train_idx, val_idx in tscv.split(X_aug):
+        clf.fit(X_aug[train_idx], y_aug[train_idx],
+                sample_weight=w_aug[train_idx])
+        proba = clf.predict_proba(X_aug[val_idx])[:, 1]
+        scores.append(brier_score_loss(y_aug[val_idx], proba))
     return float(np.mean(scores))
 
 
@@ -93,26 +94,31 @@ def train_fold(X_train, y_train, X_val, y_val, w_train, config=None):
         config = {}
     n_trials = config.get("n_trials", 75)
 
-    # Optuna hyperparameter search on training split only (no leakage from val)
+    # Augment training data with flipped rows so both classes are present
+    X_aug, y_aug, w_aug = augment_with_flipped(
+        X_train, y_train, w_train, XGB_FEATURES,
+    )
+
+    # Optuna hyperparameter search on augmented training split
     study = optuna.create_study(
         direction="minimize",
         sampler=optuna.samplers.TPESampler(seed=42),
     )
     study.optimize(
-        lambda trial: _objective(trial, X_train, y_train, w_train),
+        lambda trial: _objective(trial, X_aug, y_aug, w_aug),
         n_trials=n_trials,
         show_progress_bar=False,
     )
     best = study.best_params
 
-    # Train final model with best params on full training split
+    # Train final model with best params on full augmented training split
     pipeline = Pipeline([
         ("scaler", StandardScaler()),
         ("clf", XGBClassifier(
             **best, eval_metric="logloss", random_state=42, verbosity=0
         )),
     ])
-    pipeline.fit(X_train, y_train, clf__sample_weight=w_train)
+    pipeline.fit(X_aug, y_aug, clf__sample_weight=w_aug)
 
     # Extract feature importance before calibration wrapping
     xgb_step = pipeline.named_steps["clf"]
@@ -123,14 +129,19 @@ def train_fold(X_train, y_train, X_val, y_val, w_train, config=None):
         feature_names = [f"feature_{i}" for i in range(X_train.shape[1])]
     importances = dict(zip(feature_names, xgb_step.feature_importances_.tolist()))
 
+    # Augment validation set for calibration fitting
+    X_val_aug, y_val_aug, _ = augment_with_flipped(
+        X_val, y_val, None, XGB_FEATURES,
+    )
+
     # Dual calibration — sigmoid (Platt scaling) vs isotonic regression
     cal_sigmoid = CalibratedClassifierCV(FrozenEstimator(pipeline), method="sigmoid")
-    cal_sigmoid.fit(X_val, y_val)
+    cal_sigmoid.fit(X_val_aug, y_val_aug)
     proba_sig = cal_sigmoid.predict_proba(X_val)[:, 1]
     brier_sig = float(brier_score_loss(y_val, proba_sig))
 
     cal_isotonic = CalibratedClassifierCV(FrozenEstimator(pipeline), method="isotonic")
-    cal_isotonic.fit(X_val, y_val)
+    cal_isotonic.fit(X_val_aug, y_val_aug)
     proba_iso = cal_isotonic.predict_proba(X_val)[:, 1]
     brier_iso = float(brier_score_loss(y_val, proba_iso))
 
@@ -142,7 +153,7 @@ def train_fold(X_train, y_train, X_val, y_val, w_train, config=None):
         best_model, best_method, best_brier = cal_sigmoid, "sigmoid", brier_sig
         best_proba = proba_sig
 
-    best_logloss = float(log_loss(y_val, best_proba))
+    best_logloss = float(log_loss(y_val, best_proba, labels=[0, 1]))
 
     metrics = {
         "calibration_method": best_method,

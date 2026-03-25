@@ -89,10 +89,12 @@ export function PropScanPreview({ cards, onClose }: PropScanPreviewProps) {
       toast.success(`Submitted ${successCount} prop line${successCount > 1 ? 's' : ''} successfully`);
     }
     if (errors.length > 0) {
-      toast.error(`${errors.length} submission${errors.length > 1 ? 's' : ''} failed`);
+      toast.error(`${errors.length} failed: ${errors[0]}`);
     }
 
-    onClose();
+    if (errors.length === 0) {
+      onClose();
+    }
   };
 
   return (

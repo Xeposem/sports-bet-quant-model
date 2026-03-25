@@ -3,7 +3,6 @@ TML player ID translation layer and DataFrame normalisation.
 
 Translates TML alphanumeric player IDs (e.g. "CD85") to synthetic integer IDs
 starting at 900000, stored persistently in a tml_id_map SQLite table.
-Synthetic IDs start at 900000 to avoid collisions with Sackmann IDs (~max 230000).
 
 Exports:
 - build_id_map(player_csv_path, conn) -> int
@@ -34,8 +33,7 @@ def build_id_map(player_csv_path: str, conn: sqlite3.Connection) -> int:
     Creates the table if it does not exist. Idempotent: existing rows are never
     overwritten; only new TML IDs get synthetic integers assigned.
 
-    Synthetic IDs start at 900000 and are assigned sequentially. This places them
-    well above the Sackmann player_id range (~230000 max) to prevent collisions.
+    Synthetic IDs start at 900000 and are assigned sequentially.
 
     Args:
         player_csv_path: Path to ATP_Database.csv downloaded by tml_downloader.
@@ -54,7 +52,7 @@ def build_id_map(player_csv_path: str, conn: sqlite3.Connection) -> int:
         """
     )
 
-    df = pd.read_csv(player_csv_path, dtype=str)
+    df = pd.read_csv(player_csv_path, dtype=str, encoding="latin-1")
     next_id = _get_next_synthetic_id(conn)
     inserted = 0
 

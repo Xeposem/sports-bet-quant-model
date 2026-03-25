@@ -232,9 +232,9 @@ class TestCleanMatchDataframe:
 
 class TestMatchDtypes:
     def test_has_44_keys(self):
-        """MATCH_DTYPES has exactly 49 expected Sackmann column keys.
+        """MATCH_DTYPES has exactly 49 expected column keys.
 
-        The Sackmann atp_matches CSV has 49 columns as documented in RESEARCH.md
+        The ATP match CSV has 49 columns as documented in RESEARCH.md
         Pattern 1. The plan references '44' but the actual dtype map has 49 entries.
         """
         assert len(MATCH_DTYPES) == 49

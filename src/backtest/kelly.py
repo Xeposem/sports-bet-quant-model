@@ -48,13 +48,17 @@ def compute_kelly_bet(
     -------
     float: Bet size in bankroll units. 0.0 if no bet.
     """
+    # Guard: no bet if bankroll is zero or odds offer no profit
+    b = decimal_odds - 1.0  # net odds (profit per unit staked)
+    if bankroll <= 0.0 or b <= 0.0:
+        return 0.0
+
     # Step 1: EV check
     ev = float(prob * decimal_odds) - 1.0
     if ev < min_ev:
         return 0.0
 
     # Step 2: Full Kelly fraction
-    b = decimal_odds - 1.0  # net odds (profit per unit staked)
     p = prob
     q = 1.0 - prob
     full_kelly = (b * p - q) / b

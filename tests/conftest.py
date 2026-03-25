@@ -31,7 +31,7 @@ def db_conn():
     conn.close()
 
 
-# Sackmann 44-column dtype map — matches RESEARCH.md MATCH_DTYPES
+# 44-column dtype map for ATP match CSV loading
 MATCH_DTYPES = {
     "tourney_id": str,
     "tourney_name": str,
@@ -96,7 +96,7 @@ def sample_match_df():
     - 1 match with missing stats (all stat columns NaN)
 
     tourney_date is YYYYMMDD string (raw format before cleaning).
-    Includes all 44 columns from the Sackmann schema (MATCH_DTYPES).
+    Includes all 44 columns from the match schema (MATCH_DTYPES).
     """
     rows = [
         # Row 0: Completed match — full stats

@@ -206,12 +206,12 @@ class TestBacktestSchema:
         assert not missing, f"Missing columns in calibration_data: {missing}"
 
     def test_table_count_includes_backtest_tables(self, mem_db):
-        """Schema now includes backtest_results and calibration_data (14 total)."""
+        """Schema now includes all tables through Phase 9 (20 total)."""
         cursor = mem_db.execute(
             "SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
         )
         table_count = cursor.fetchone()[0]
-        assert table_count == 14, f"Expected 14 tables, got {table_count}"
+        assert table_count == 20, f"Expected 20 tables, got {table_count}"
 
 
 # ---------------------------------------------------------------------------
@@ -385,3 +385,87 @@ class TestRunWalkForward:
         count = cursor.fetchone()[0]
         # Should have stored some rows (at least one fold ran)
         assert count >= 0, "backtest_results should exist"
+
+
+# ---------------------------------------------------------------------------
+# Pinnacle SQL and dispatch tests (Plan 12-02)
+# ---------------------------------------------------------------------------
+
+
+class TestPinnacleWalkForwardSQL:
+    def test_fold_matrix_sql_has_pinnacle(self):
+        from src.backtest.walk_forward import _FOLD_MATRIX_SQL
+        assert "pinnacle_prob_diff" in _FOLD_MATRIX_SQL
+        assert "has_no_pinnacle" in _FOLD_MATRIX_SQL
+
+    def test_fold_test_matches_sql_has_pinnacle(self):
+        from src.backtest.walk_forward import _FOLD_TEST_MATCHES_SQL
+        assert "pinnacle_prob_diff" in _FOLD_TEST_MATCHES_SQL
+        assert "has_no_pinnacle" in _FOLD_TEST_MATCHES_SQL
+
+    def test_fold_xgb_test_matches_sql_has_pinnacle(self):
+        from src.backtest.walk_forward import _FOLD_XGB_TEST_MATCHES_SQL
+        assert "pinnacle_prob_diff" in _FOLD_XGB_TEST_MATCHES_SQL
+        assert "has_no_pinnacle" in _FOLD_XGB_TEST_MATCHES_SQL
+
+    def test_train_model_for_fold_logistic_v3(self):
+        """_train_model_for_fold dispatches logistic_v3_pinnacle to train_and_calibrate."""
+        from unittest.mock import patch, MagicMock
+        import numpy as np
+        from src.backtest.walk_forward import _train_model_for_fold
+        from src.model.base import LOGISTIC_FEATURES
+
+        n = len(LOGISTIC_FEATURES)
+        X = np.random.default_rng(0).standard_normal((20, n))
+        y = np.ones(20)
+        w = np.ones(20)
+        X_val = np.random.default_rng(1).standard_normal((5, n))
+        y_val = np.ones(5)
+
+        mock_model = MagicMock()
+        mock_metrics = {"val_brier_score": 0.2}
+
+        with patch("src.backtest.walk_forward.train_and_calibrate",
+                   return_value=(mock_model, mock_metrics)) as mock_tac:
+            result = _train_model_for_fold(
+                "logistic_v3_pinnacle",
+                X, y, X_val, y_val, w,
+                config={},
+            )
+            mock_tac.assert_called_once()
+
+    def test_train_model_for_fold_xgboost_v2(self):
+        """_train_model_for_fold dispatches xgboost_v2_pinnacle to xgb_train_fold."""
+        from unittest.mock import patch, MagicMock
+        import numpy as np
+        from src.backtest.walk_forward import _train_model_for_fold
+        from src.model.base import LOGISTIC_FEATURES, XGB_FEATURES
+
+        n = len(LOGISTIC_FEATURES)
+        X = np.zeros((20, n))
+        y = np.ones(20)
+        w = np.ones(20)
+        X_val = np.zeros((5, n))
+        y_val = np.ones(5)
+
+        # XGB build matrix returns XGB_FEATURES-column array
+        n_xgb = len(XGB_FEATURES)
+        mock_xgb_X = np.zeros((20, n_xgb))
+        mock_xgb_y = np.ones(20)
+        mock_xgb_dates = [f"2020-01-{i+1:02d}" for i in range(20)]
+
+        mock_model = MagicMock()
+        mock_metrics = {"val_brier_score": 0.25}
+
+        with patch("src.backtest.walk_forward.build_xgb_training_matrix",
+                   return_value=(mock_xgb_X, mock_xgb_y, mock_xgb_dates)):
+            with patch("src.model.xgboost_model.train_fold",
+                       return_value=(mock_model, mock_metrics)) as mock_xgb_fold:
+                mock_conn = MagicMock()
+                result = _train_model_for_fold(
+                    "xgboost_v2_pinnacle",
+                    X, y, X_val, y_val, w,
+                    config={},
+                    conn=mock_conn,
+                    train_end="2021-01-01",
+                )

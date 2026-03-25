@@ -1,7 +1,7 @@
 """
 End-to-end integration tests for the full ATP ingestion pipeline.
 
-Tests use synthetic CSV data (no real Sackmann downloads) and
+Tests use synthetic CSV data (no real downloads) and
 temporary directories/databases to remain isolated and fast.
 """
 import csv
@@ -105,7 +105,7 @@ _CSV_COLUMNS = list(_make_match_row().keys())
 
 
 def _write_csv(path: Path, rows: list) -> None:
-    """Write rows (list of dicts) to a CSV at path using Sackmann column order."""
+    """Write rows (list of dicts) to a CSV at path using match column order."""
     with open(path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=_CSV_COLUMNS)
         writer.writeheader()
@@ -197,15 +197,23 @@ class TestFullPipelineSynthetic:
         )
         assert len(rows) == 20
 
-        csv_path = tmp_path / "atp_matches_2023.csv"
+        csv_path = tmp_path / "tml_2023.csv"
         _write_csv(csv_path, rows)
+        # Write a dummy player CSV for ID mapping
+        player_csv = tmp_path / "ATP_Database.csv"
+        player_csv.write_text("id,atpname,player\n")
 
         db_path = str(tmp_path / "test.db")
         init_db(db_path)
         conn = get_connection(db_path)
 
         try:
-            with patch("src.ingestion.loader.download_match_file", return_value=str(csv_path)):
+            with (
+                patch("src.ingestion.loader.download_tml_match_file", return_value=str(csv_path)),
+                patch("src.ingestion.loader.download_tml_player_file", return_value=str(player_csv)),
+                patch("src.ingestion.loader.build_id_map", return_value=0),
+                patch("src.ingestion.loader.normalise_tml_dataframe", side_effect=lambda df, conn: df),
+            ):
                 result = ingest_year(conn, year=2023, raw_dir=str(tmp_path))
 
             # 20 raw rows - 1 walkover - 1 default = 18 kept (16 completed + 1 retirement + 1 missing_stats)
@@ -261,15 +269,27 @@ class TestIdempotentFullPipeline:
         Row counts unchanged. ingestion_log has two entries.
         """
         rows = _build_synthetic_rows(n_completed=10, n_retirements=1, n_walkovers=0, n_defaults=0, n_missing_stats=0)
-        csv_path = tmp_path / "atp_matches_2022.csv"
+        csv_path = tmp_path / "tml_2022.csv"
         _write_csv(csv_path, rows)
+        player_csv = tmp_path / "ATP_Database.csv"
+        player_csv.write_text("id,atpname,player\n")
 
         db_path = str(tmp_path / "idem.db")
         init_db(db_path)
         conn = get_connection(db_path)
 
+        _tml_patches = {
+            "src.ingestion.loader.download_tml_match_file": str(csv_path),
+            "src.ingestion.loader.download_tml_player_file": str(player_csv),
+        }
+
         try:
-            with patch("src.ingestion.loader.download_match_file", return_value=str(csv_path)):
+            with (
+                patch("src.ingestion.loader.download_tml_match_file", return_value=str(csv_path)),
+                patch("src.ingestion.loader.download_tml_player_file", return_value=str(player_csv)),
+                patch("src.ingestion.loader.build_id_map", return_value=0),
+                patch("src.ingestion.loader.normalise_tml_dataframe", side_effect=lambda df, conn: df),
+            ):
                 result1 = ingest_year(conn, year=2022, raw_dir=str(tmp_path))
 
             first_inserted = result1["inserted"]
@@ -278,7 +298,12 @@ class TestIdempotentFullPipeline:
             count_after_first = conn.execute("SELECT COUNT(*) FROM matches").fetchone()[0]
 
             # Second run: same CSV, same year
-            with patch("src.ingestion.loader.download_match_file", return_value=str(csv_path)):
+            with (
+                patch("src.ingestion.loader.download_tml_match_file", return_value=str(csv_path)),
+                patch("src.ingestion.loader.download_tml_player_file", return_value=str(player_csv)),
+                patch("src.ingestion.loader.build_id_map", return_value=0),
+                patch("src.ingestion.loader.normalise_tml_dataframe", side_effect=lambda df, conn: df),
+            ):
                 result2 = ingest_year(conn, year=2022, raw_dir=str(tmp_path))
 
             # Second run inserts 0, skips all
@@ -320,14 +345,14 @@ class TestCLIValidateOnly:
 
     def test_cli_validate_only_no_ingestion(self, tmp_path):
         """
-        --validate-only must not trigger any ingestion (download_match_file not called).
+        --validate-only must not trigger any ingestion (download not called).
         """
         from src.ingestion.__main__ import main
 
         db_path = str(tmp_path / "cli_no_ingest.db")
         init_db(db_path)
 
-        with patch("src.ingestion.loader.download_match_file") as mock_dl:
+        with patch("src.ingestion.loader.download_tml_match_file") as mock_dl:
             main([
                 "--db-path", db_path,
                 "--raw-dir", str(tmp_path),

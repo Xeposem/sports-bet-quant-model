@@ -71,7 +71,9 @@ _FEATURE_QUERY = """
         COALESCE(w.form_win_rate_20, 0.5) - COALESCE(l.form_win_rate_20, 0.5) AS form_diff_20,
         COALESCE(w.days_since_last, 0) - COALESCE(l.days_since_last, 0)     AS fatigue_diff,
         CASE WHEN COALESCE(w.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_w,
-        CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l
+        CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l,
+        COALESCE(w.round_ordinal, 3) AS round_ordinal,
+        COALESCE(w.best_of, 3) AS best_of
     FROM match_features w
     JOIN match_features l
       ON  w.tourney_id = l.tourney_id
@@ -145,6 +147,13 @@ def predict_match(
 
     winner_id = row[3]
     loser_id = row[4]
+
+    if winner_id is None or loser_id is None:
+        logger.warning(
+            "NULL player_id for %s/%s/%s — skipping prediction",
+            tourney_id, match_num, tour,
+        )
+        return []
 
     # Get calibrated probability for winner (index 1 = P(class=1=winner))
     proba = model.predict_proba(feature_vector)
@@ -321,11 +330,28 @@ def predict_all_matches(
     cursor = conn.execute(_ALL_MATCHES_QUERY)
     matches = cursor.fetchall()
 
+    # Build set of already-predicted matches so re-runs skip them
+    already_done = set()
+    for row in conn.execute(
+        "SELECT tourney_id, match_num, tour FROM predictions WHERE model_version = ?",
+        (model_version,),
+    ).fetchall():
+        already_done.add((row[0], row[1], row[2]))
+
+    remaining = [m for m in matches if (m[0], m[1], m[2]) not in already_done]
+
+    try:
+        from tqdm import tqdm
+        match_iter = tqdm(remaining, desc="Predicting", unit="match")
+    except ImportError:
+        match_iter = remaining
+
     matches_predicted = 0
     predictions_stored = 0
     with_ev = 0
+    commit_interval = 1000
 
-    for match_row in matches:
+    for match_row in match_iter:
         tourney_id, match_num, tour = match_row[0], match_row[1], match_row[2]
         preds = predict_match(
             model, conn, tourney_id, match_num, tour=tour,
@@ -345,9 +371,14 @@ def predict_all_matches(
         if has_ev:
             with_ev += 1
 
+        if matches_predicted % commit_interval == 0:
+            conn.commit()
+
+    conn.commit()
+
     logger.info(
-        "predict_all_matches: matches_predicted=%d, predictions_stored=%d, with_ev=%d",
-        matches_predicted, predictions_stored, with_ev,
+        "predict_all_matches: matches_predicted=%d, predictions_stored=%d, with_ev=%d (skipped %d already done)",
+        matches_predicted, predictions_stored, with_ev, len(already_done),
     )
     return {
         "matches_predicted": matches_predicted,

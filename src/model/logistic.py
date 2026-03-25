@@ -23,6 +23,7 @@ from sklearn.preprocessing import StandardScaler
 
 from src.model.base import (
     LOGISTIC_FEATURES,
+    augment_with_flipped,
     build_training_matrix,
     compute_time_weights,
     temporal_split,
@@ -129,15 +130,10 @@ def train_and_calibrate(
         brier_isotonic: Brier score of the isotonic calibrator
     """
     # Step 1: Augment training data with flipped rows for both-class representation.
-    # X = winner - loser with y=1; flipped: X' = -(X) with y=0, swapping
-    # has_no_elo_w <-> has_no_elo_l since winner/loser perspectives reverse.
-    X_flip = -X_train.copy()
-    idx_w = LOGISTIC_FEATURES.index("has_no_elo_w")
-    idx_l = LOGISTIC_FEATURES.index("has_no_elo_l")
-    X_flip[:, [idx_w, idx_l]] = X_train[:, [idx_l, idx_w]]
-    X_aug = np.vstack([X_train, X_flip])
-    y_aug = np.concatenate([y_train, np.zeros(len(y_train))])
-    w_aug = np.concatenate([weights_train, weights_train])
+    # X = winner - loser with y=1; flipped: X' = -(X) with y=0.
+    X_aug, y_aug, w_aug = augment_with_flipped(
+        X_train, y_train, weights_train, LOGISTIC_FEATURES,
+    )
 
     # Step 2: Train base pipeline (scaler + logistic regression) on augmented set
     pipeline = Pipeline([
@@ -147,10 +143,9 @@ def train_and_calibrate(
     pipeline.fit(X_aug, y_aug, clf__sample_weight=w_aug)
 
     # Step 3: Augment validation set the same way for calibration fitting
-    X_val_flip = -X_val.copy()
-    X_val_flip[:, [idx_w, idx_l]] = X_val[:, [idx_l, idx_w]]
-    X_val_aug = np.vstack([X_val, X_val_flip])
-    y_val_aug = np.concatenate([y_val, np.zeros(len(y_val))])
+    X_val_aug, y_val_aug, _ = augment_with_flipped(
+        X_val, y_val, None, LOGISTIC_FEATURES,
+    )
 
     # Step 4: Freeze pipeline so calibrators train their own isotonic/sigmoid
     # mapping on the validation set without re-training the base model.

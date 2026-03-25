@@ -372,12 +372,12 @@ class TestCalibrationEndpoint:
         assert data["bins"] == []
 
 
-class TestPropsStub:
-    """GET /api/v1/props — stub response (Phase 8 not implemented)."""
+class TestPropsEndpoint:
+    """GET /api/v1/props — returns prop predictions (empty list on clean DB)."""
 
-    async def test_props_stub(self, async_client):
+    async def test_props_returns_ok(self, async_client):
         response = await async_client.get("/api/v1/props")
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "not_available"
-        assert data["data"] == []
+        assert data["status"] == "ok"
+        assert isinstance(data["data"], list)

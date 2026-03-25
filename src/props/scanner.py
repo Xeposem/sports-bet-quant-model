@@ -34,7 +34,15 @@ _TESSERACT_CMD = os.environ.get(
     r"C:\Program Files\Tesseract-OCR\tesseract.exe",
 )
 pytesseract.pytesseract.tesseract_cmd = _TESSERACT_CMD
-os.environ.setdefault("TESSDATA_PREFIX", r"C:\Program Files\Tesseract-OCR\tessdata")
+# Fix TESSDATA_PREFIX — must point to the directory *containing* .traineddata
+# files.  The Tesseract Windows installer sets it to the parent dir (wrong).
+_tessdata_env = os.environ.get("TESSDATA_PREFIX", "")
+if _tessdata_env and not os.path.isfile(os.path.join(_tessdata_env, "eng.traineddata")):
+    _candidate = os.path.join(_tessdata_env, "tessdata")
+    if os.path.isfile(os.path.join(_candidate, "eng.traineddata")):
+        os.environ["TESSDATA_PREFIX"] = _candidate
+elif not _tessdata_env:
+    os.environ["TESSDATA_PREFIX"] = r"C:\Program Files\Tesseract-OCR\tessdata"
 
 # ---------------------------------------------------------------------------
 # Stat type keyword patterns — handles OCR noise like "toraicameswon"

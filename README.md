@@ -25,7 +25,7 @@ Quantitative tennis betting platform with ATP data ingestion, ML-driven probabil
 
 The system identifies positive expected value (EV) betting opportunities in ATP tennis by:
 
-1. Ingesting historical match data from Jeff Sackmann's ATP dataset
+1. Ingesting ATP match data from TennisMyLife (stats.tennismylife.org)
 2. Computing surface-specific Glicko-2 Elo ratings
 3. Engineering 27+ pairwise features (H2H, form, fatigue, serve stats, sentiment)
 4. Training calibrated ML models (logistic regression, XGBoost, Bayesian GLM, ensemble)
@@ -36,15 +36,15 @@ The system identifies positive expected value (EV) betting opportunities in ATP 
 ## Architecture
 
 ```
-                  ┌─────────────┐
-                  │  ATP CSVs   │
-                  │ (Sackmann)  │
-                  └──────┬──────┘
-                         │
-                  ┌──────▼──────┐
-                  │  Ingestion  │
-                  │  Pipeline   │
-                  └──────┬──────┘
+              ┌─────────────────┐
+              │  TennisMyLife   │
+              │ (stats.tml.org) │
+              └────────┬────────┘
+                       │
+                ┌──────▼──────┐
+                │  Ingestion  │
+                │  Pipeline   │
+                └──────┬──────┘
                          │
               ┌──────────▼──────────┐
               │     SQLite DB       │
@@ -114,13 +114,13 @@ cd ..
 
 ### 3. Initialize the database
 
-The database is created automatically on first ingestion. To ingest ATP data:
+The database is created automatically on first ingestion. To ingest ATP data from TennisMyLife:
 
 ```bash
 python -m src.ingestion --start-year 2010
 ```
 
-This downloads Jeff Sackmann's ATP CSV files and loads players, tournaments, matches, and match stats into `data/tennis.db`.
+This downloads TennisMyLife ATP CSV files and loads players, tournaments, matches, and match stats into `data/tennis.db`.
 
 ### 4. Build ratings, features, and sentiment
 
@@ -161,6 +161,9 @@ Open http://localhost:5173 to access the dashboard.
 # Full ingestion from 2010 onward
 python -m src.ingestion --start-year 2010
 
+# Ingest recent years only
+python -m src.ingestion --start-year 2024
+
 # Validate data integrity without ingesting
 python -m src.ingestion --validate-only
 
@@ -170,10 +173,11 @@ python -m src.ingestion --force
 
 Data flows through these stages:
 
-1. **Download** -- Fetches Sackmann ATP CSV files (matches, rankings)
+1. **Download** -- Fetches CSV files from TennisMyLife (stats.tennismylife.org)
 2. **Parse & Load** -- Normalizes into players, tournaments, matches, match_stats tables
-3. **Deduplicate** -- Handles retirement flags, missing stats, duplicate entries
-4. **Ingestion Log** -- Tracks per-file ingestion state for incremental updates
+3. **ID Translation** -- Maps TML alphanumeric player IDs to synthetic integers (>=900000) via SQLite lookup
+4. **Deduplicate** -- Handles retirement flags, missing stats, duplicate entries
+5. **Ingestion Log** -- Tracks per-file ingestion state for incremental updates
 
 ### Daily Refresh
 
@@ -198,6 +202,9 @@ python -m src.odds.cli enter
 
 # Import from tennis-data.co.uk CSV
 python -m src.odds.cli import-csv path/to/odds.csv
+
+# Upload odds via API
+curl -X POST http://localhost:8000/api/v1/odds/upload -F "file=@odds.csv"
 ```
 
 ## Models
@@ -290,10 +297,15 @@ All routes are prefixed with `/api/v1`.
 | `GET` | `/models` | Per-model performance metrics |
 | `GET` | `/bankroll` | Equity curve with drawdown stats |
 | `GET` | `/calibration` | Calibration curve data per fold and model |
+| `POST` | `/odds` | Manual odds entry |
+| `POST` | `/odds/upload` | Upload odds CSV file |
+| `GET` | `/odds/list` | List stored odds |
+| `DELETE` | `/odds/{tourney_id}/{match_num}` | Delete an odds entry |
 | `GET` | `/props` | Prop predictions with P(over/under) from PMF |
 | `GET` | `/props/accuracy` | Prop prediction accuracy and calibration |
-| `GET` | `/props/lines` | List manually entered prop lines |
+| `POST` | `/props/scan` | OCR scan a screenshot to extract prop lines |
 | `POST` | `/props` | Enter a PrizePicks prop line (fuzzy player matching) |
+| `GET` | `/props/lines` | List manually entered prop lines |
 | `DELETE` | `/props/lines/{id}` | Delete a prop line |
 | `GET` | `/signals` | Upsert and return filtered signals |
 | `PATCH` | `/signals/{id}/status` | Update signal status |
@@ -306,6 +318,9 @@ All routes are prefixed with `/api/v1`.
 | `GET` | `/paper/equity` | Equity curve for active session |
 | `POST` | `/simulation/run` | Run Monte Carlo simulation |
 | `GET` | `/simulation/result` | Last stored simulation result |
+| `POST` | `/refresh` | Trigger data refresh pipeline |
+| `GET` | `/refresh/status` | Poll refresh job status |
+| `POST` | `/refresh/cancel` | Cancel running refresh job |
 
 ## Dashboard
 
@@ -388,12 +403,27 @@ Results include:
 Predict player prop outcomes (aces, games won, double faults) using Gaussian GLM models:
 
 ```bash
-# Train props models
+# Train all prop models
 python -m src.props train
 
-# Generate predictions
+# Train a specific stat type
+python -m src.props train --stat-type aces
+
+# Generate predictions (last 30 days by default)
 python -m src.props predict
+
+# Predict for a specific date range
+python -m src.props predict --date-from 2025-01-01 --date-to 2025-03-01
 ```
+
+### Screenshot Scanner
+
+Scan PrizePicks screenshots to extract prop lines automatically:
+
+1. On the **Props** tab, click **Scan Screenshot**
+2. Upload an image file or paste from clipboard
+3. The OCR scanner extracts player names, stat types, and lines
+4. Review the extracted entries and confirm to submit
 
 ### Manual Line Entry
 
@@ -472,7 +502,8 @@ sports-bet-quant-model/
 │   │       ├── odds.py           # Manual odds entry
 │   │       ├── paper.py          # Paper trading session/bets
 │   │       ├── predict.py        # Predictions with EV
-│   │       ├── props.py          # Props predictions and lines
+│   │       ├── props.py          # Props predictions, lines, and screenshot scan
+│   │       ├── refresh.py        # Data refresh pipeline trigger
 │   │       ├── signals.py        # Signal generation and status
 │   │       └── simulation.py     # Monte Carlo simulation
 │   ├── backtest/                 # Walk-forward backtesting
@@ -488,7 +519,12 @@ sports-bet-quant-model/
 │   ├── features/                 # Feature engineering
 │   │   └── builder.py            # 27-feature match feature matrix
 │   ├── ingestion/                # Data ingestion pipeline
-│   │   └── __main__.py           # Sackmann CSV download and load
+│   │   ├── __main__.py           # CLI entry point
+│   │   ├── loader.py             # Ingest orchestration (ingest_all, ingest_year)
+│   │   ├── cleaner.py            # Data cleaning and deduplication
+│   │   ├── validator.py          # Data integrity checks
+│   │   ├── tml_downloader.py     # TennisMyLife CSV download
+│   │   └── tml_id_mapper.py      # TML alphanumeric → synthetic integer ID translation
 │   ├── model/                    # ML model implementations
 │   │   ├── __init__.py           # Model registry
 │   │   ├── base.py               # Shared utilities, save/load
@@ -501,9 +537,14 @@ sports-bet-quant-model/
 │   ├── odds/                     # Odds management
 │   │   └── cli.py                # CLI for odds entry, training, prediction
 │   ├── props/                    # Player props models
+│   │   ├── __main__.py           # CLI: train and predict commands
+│   │   ├── base.py               # Shared GLM base, predict_and_store
 │   │   ├── aces.py               # Aces GLM
 │   │   ├── games_won.py          # Games won GLM
-│   │   └── double_faults.py      # Double faults GLM
+│   │   ├── double_faults.py      # Double faults GLM
+│   │   ├── scanner.py            # OCR screenshot scanner for prop lines
+│   │   ├── resolver.py           # Player name resolution (fuzzy matching)
+│   │   └── score_parser.py       # Score string parsing utilities
 │   ├── ratings/                  # Rating computation
 │   │   └── glicko.py             # Surface-specific Glicko-2
 │   ├── refresh/                  # Data refresh pipeline
@@ -521,7 +562,7 @@ sports-bet-quant-model/
 │   │   │   ├── charts/           # FanChart, HistogramChart, BankrollChart, etc.
 │   │   │   ├── layout/           # TabNav, Header
 │   │   │   ├── modals/           # ManualEntryModal
-│   │   │   ├── shared/           # KpiCard, SignalCard, MonteCarloSection
+│   │   │   ├── shared/           # KpiCard, SignalCard, MonteCarloSection, PropScanPreview
 │   │   │   └── ui/               # Radix UI primitives
 │   │   └── __tests__/            # Vitest component tests
 │   ├── package.json

@@ -6,7 +6,7 @@ Moved from trainer.py to provide a common foundation for all model types
 in the registry-based architecture (logistic, xgboost, bayesian, ensemble).
 
 Key exports:
-  - LOGISTIC_FEATURES: curated feature list constant (12 entries)
+  - LOGISTIC_FEATURES: curated feature list constant (14 entries)
   - build_training_matrix: assemble X, y, match_dates from match_features table
   - compute_time_weights: exponential time-decay sample weights
   - temporal_split: chronological 80/20 train/validation split
@@ -43,6 +43,8 @@ LOGISTIC_FEATURES = [
     "fatigue_diff",       # days since last match: winner.days_since_last - loser.days_since_last
     "has_no_elo_w",       # 1 if winner has default Elo (no real rating yet)
     "has_no_elo_l",       # 1 if loser has default Elo (no real rating yet)
+    "round_ordinal",      # round stage (1=R128 .. 7=F), non-differential
+    "best_of",            # best-of format (3 or 5), non-differential
 ]
 
 # ---------------------------------------------------------------------------
@@ -69,7 +71,10 @@ _BUILD_MATRIX_SQL = """
         COALESCE(w.days_since_last, 0) - COALESCE(l.days_since_last, 0)     AS fatigue_diff,
         -- Boolean indicators for missing Elo data (default Elo = 1500.0)
         CASE WHEN COALESCE(w.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_w,
-        CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l
+        CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l,
+        -- Match context (non-differential, same for both players)
+        COALESCE(w.round_ordinal, 3) AS round_ordinal,
+        COALESCE(w.best_of, 3) AS best_of
     FROM match_features w
     JOIN match_features l
       ON  w.tourney_id = l.tourney_id
@@ -201,6 +206,56 @@ def temporal_split(
     }
 
 
+def augment_with_flipped(
+    X: np.ndarray,
+    y: np.ndarray,
+    w: np.ndarray | None,
+    feature_list: list[str],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+    """Augment winner-perspective data with flipped (loser-perspective) rows.
+
+    Differential features are negated; indicator columns (has_no_elo_w/l) are
+    swapped; non-differential match-context columns are preserved unchanged.
+
+    Returns (X_aug, y_aug, w_aug).
+    """
+    X_flip = -X.copy()
+
+    # Swap has_no_elo_w <-> has_no_elo_l
+    if "has_no_elo_w" in feature_list and "has_no_elo_l" in feature_list:
+        idx_w = feature_list.index("has_no_elo_w")
+        idx_l = feature_list.index("has_no_elo_l")
+        X_flip[:, [idx_w, idx_l]] = X[:, [idx_l, idx_w]]
+
+    # Restore non-differential (match-context) columns that should NOT be negated
+    _NON_DIFF_COLS = [
+        "surface_clay", "surface_grass", "surface_hard",
+        "level_G", "level_M",
+        "round_ordinal", "best_of",
+    ]
+    for col in _NON_DIFF_COLS:
+        if col in feature_list:
+            idx = feature_list.index(col)
+            X_flip[:, idx] = X[:, idx]
+
+    # Interleave original and flipped rows so that sequential splits
+    # (e.g. TimeSeriesSplit) always contain both classes.
+    n = len(X)
+    X_aug = np.empty((2 * n, X.shape[1]), dtype=X.dtype)
+    X_aug[0::2] = X
+    X_aug[1::2] = X_flip
+    y_aug = np.empty(2 * n, dtype=y.dtype)
+    y_aug[0::2] = y
+    y_aug[1::2] = 1.0 - y
+    if w is not None:
+        w_aug = np.empty(2 * n, dtype=w.dtype)
+        w_aug[0::2] = w
+        w_aug[1::2] = w
+    else:
+        w_aug = None
+    return X_aug, y_aug, w_aug
+
+
 def save_model(calibrated_model, path: str) -> None:
     """Serialize calibrated model to a .joblib file."""
     joblib.dump(calibrated_model, path)
@@ -220,7 +275,7 @@ def load_model(path: str):
 #: plus one-hot encoded surface and tourney_level as match context.
 #: Per user decision: "let XGBoost's tree splits discover which features matter".
 XGB_FEATURES = [
-    # --- Same 12 as LOGISTIC_FEATURES ---
+    # --- Same 14 as LOGISTIC_FEATURES ---
     "elo_diff",           # elo_overall: winner - loser
     "elo_hard_diff",      # elo_hard: winner - loser
     "elo_clay_diff",      # elo_clay: winner - loser
@@ -251,6 +306,8 @@ XGB_FEATURES = [
     "surface_hard",         # one-hot: 1 if surface=Hard
     "level_G",              # one-hot: 1 if tourney_level=G (Grand Slam)
     "level_M",              # one-hot: 1 if tourney_level=M (Masters)
+    "round_ordinal",        # round stage (1=R128 .. 7=F)
+    "best_of",              # best-of format (3 or 5)
 ]
 
 # ---------------------------------------------------------------------------
@@ -260,7 +317,7 @@ XGB_FEATURES = [
 _BUILD_XGB_MATRIX_SQL = """
     SELECT
         m.tourney_date,
-        -- Same 12 as logistic
+        -- Same 14 as logistic
         COALESCE(w.elo_overall, 1500.0) - COALESCE(l.elo_overall, 1500.0) AS elo_diff,
         COALESCE(w.elo_hard, 1500.0) - COALESCE(l.elo_hard, 1500.0) AS elo_hard_diff,
         COALESCE(w.elo_clay, 1500.0) - COALESCE(l.elo_clay, 1500.0) AS elo_clay_diff,
@@ -291,7 +348,10 @@ _BUILD_XGB_MATRIX_SQL = """
         CASE WHEN w.surface = 'Hard' THEN 1 ELSE 0 END AS surface_hard,
         -- One-hot tourney_level
         CASE WHEN w.tourney_level = 'G' THEN 1 ELSE 0 END AS level_G,
-        CASE WHEN w.tourney_level = 'M' THEN 1 ELSE 0 END AS level_M
+        CASE WHEN w.tourney_level = 'M' THEN 1 ELSE 0 END AS level_M,
+        -- Match context
+        COALESCE(w.round_ordinal, 3) AS round_ordinal,
+        COALESCE(w.best_of, 3) AS best_of
     FROM match_features w
     JOIN match_features l
       ON  w.tourney_id = l.tourney_id
@@ -314,8 +374,8 @@ def build_xgb_training_matrix(
     """
     Assemble pairwise differential training matrix with ALL match_features columns.
 
-    Like build_training_matrix but uses XGB_FEATURES (27 columns) instead of
-    LOGISTIC_FEATURES (12). Includes RD diffs, serve stats, surface/level one-hots.
+    Like build_training_matrix but uses XGB_FEATURES (30 columns) instead of
+    LOGISTIC_FEATURES (14). Includes RD diffs, serve stats, surface/level one-hots.
 
     Parameters
     ----------

@@ -32,8 +32,8 @@ def make_conn() -> sqlite3.Connection:
 # Synthetic data helpers
 # ---------------------------------------------------------------------------
 
-def make_synthetic_data(n=300, n_features=28, seed=42):
-    """28-column synthetic data to match XGB_FEATURES length."""
+def make_synthetic_data(n=300, n_features=30, seed=42):
+    """30-column synthetic data to match XGB_FEATURES length."""
     rng = np.random.default_rng(seed)
     X = rng.standard_normal((n, n_features))
     y = rng.integers(0, 2, size=n).astype(np.float64)
@@ -48,9 +48,9 @@ def make_synthetic_data(n=300, n_features=28, seed=42):
 class TestXGBFeatures:
     def test_xgb_features_length(self):
         from src.model.base import XGB_FEATURES
-        # 12 logistic + 11 new numeric (RD diffs, serve stats, h2h_surface, sentiment, sets_7d)
-        # + 5 one-hot context (surface_clay, surface_grass, surface_hard, level_G, level_M)
-        assert len(XGB_FEATURES) == 28
+        # 16 logistic (including 2 pinnacle) + 11 new numeric (RD diffs, serve stats, h2h_surface, sentiment, sets_7d)
+        # + 5 one-hot context (surface_clay, surface_grass, surface_hard, level_G, level_M) - 1 (round_ordinal already counted)
+        assert len(XGB_FEATURES) == 31
 
     def test_xgb_features_superset_of_logistic(self):
         from src.model.base import LOGISTIC_FEATURES, XGB_FEATURES
@@ -69,6 +69,16 @@ class TestXGBFeatures:
         assert X.shape == (0, len(XGB_FEATURES))
         assert y.shape == (0,)
         assert dates == []
+
+    def test_xgb_features_includes_pinnacle(self):
+        from src.model.base import XGB_FEATURES
+        assert "pinnacle_prob_diff" in XGB_FEATURES
+        assert "has_no_pinnacle" in XGB_FEATURES
+
+    def test_build_xgb_matrix_sql_has_pinnacle(self):
+        from src.model.base import _BUILD_XGB_MATRIX_SQL
+        assert "pinnacle_prob_diff" in _BUILD_XGB_MATRIX_SQL
+        assert "has_no_pinnacle" in _BUILD_XGB_MATRIX_SQL
 
     def test_build_xgb_training_matrix_train_end_filters(self):
         """train_end parameter filters rows to before the cutoff date."""

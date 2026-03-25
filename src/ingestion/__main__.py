@@ -1,10 +1,12 @@
 """
 CLI entry point for the ATP tennis data ingestion pipeline.
 
+Data is sourced from TennisMyLife (stats.tennismylife.org).
+
 Usage:
     python -m src.ingestion [--db-path DB_PATH] [--raw-dir RAW_DIR]
                             [--start-year YEAR] [--force] [--validate-only]
-                            [--verbose] [--source {sackmann,tml,auto}]
+                            [--verbose]
 
 Examples:
     # Ingest all unprocessed years (1991-present) into the default database
@@ -18,12 +20,6 @@ Examples:
 
     # Force re-ingest all years (ignores existing log entries)
     python -m src.ingestion --db-path data/tennis.db --force
-
-    # Ingest using TML source only (2025 data)
-    python -m src.ingestion --db-path data/tennis.db --start-year 2025 --source tml
-
-    # Auto mode (default): Sackmann where available, TML fallback
-    python -m src.ingestion --db-path data/tennis.db --start-year 2020
 """
 import argparse
 import logging
@@ -48,7 +44,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--raw-dir",
         default="data/raw",
-        help="Directory for downloaded Sackmann CSV files (default: data/raw)",
+        help="Directory for downloaded CSV files (default: data/raw)",
     )
     parser.add_argument(
         "--start-year",
@@ -70,12 +66,6 @@ def _build_parser() -> argparse.ArgumentParser:
         "--verbose",
         action="store_true",
         help="Enable verbose (DEBUG) logging output",
-    )
-    parser.add_argument(
-        "--source",
-        choices=["sackmann", "tml", "auto"],
-        default="auto",
-        help="Data source: 'sackmann' (historical), 'tml' (TennisMyLife, 2025+), 'auto' (Sackmann with TML fallback). Default: auto.",
     )
     return parser
 
@@ -202,14 +192,13 @@ def main(argv=None) -> int:
 
     # Run ingestion if not validate-only
     if not args.validate_only:
-        print(f"Starting ingestion: db={db_path}, raw_dir={raw_dir}, start_year={args.start_year}, force={args.force}, source={args.source}")
+        print(f"Starting ingestion: db={db_path}, raw_dir={raw_dir}, start_year={args.start_year}, force={args.force}")
         logger.info("Initialising database at %s", db_path)
         results = ingest_all(
             db_path=db_path,
             raw_dir=raw_dir,
             start_year=args.start_year,
             force=args.force,
-            source=args.source,
         )
         print()
         print("Ingestion Summary:")

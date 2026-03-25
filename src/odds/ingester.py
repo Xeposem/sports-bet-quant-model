@@ -40,7 +40,9 @@ _REQUIRED_ODDS_COLS = {"PSW", "PSL"}
 
 def parse_tennis_data_csv(filepath: str) -> list:
     """
-    Parse a tennis-data.co.uk CSV file and extract Pinnacle odds rows.
+    Parse a tennis-data.co.uk file and extract Pinnacle odds rows.
+
+    Accepts CSV (.csv), Excel (.xlsx), and legacy Excel (.xls) formats.
 
     Handles:
     - DD/MM/YYYY date format (dayfirst=True) and converts to ISO YYYY-MM-DD
@@ -48,13 +50,17 @@ def parse_tennis_data_csv(filepath: str) -> list:
     - Column mapping via TD_COLUMN_MAP
 
     Args:
-        filepath: Path to tennis-data.co.uk CSV file.
+        filepath: Path to tennis-data.co.uk file (.csv, .xlsx, or .xls).
 
     Returns:
         List of dicts with keys: match_date, winner_name, loser_name,
         decimal_odds_winner, decimal_odds_loser, (optionally tourney_name, surface).
     """
-    df = pd.read_csv(filepath)
+    ext = filepath.rsplit(".", 1)[-1].lower() if "." in filepath else ""
+    if ext in ("xlsx", "xls"):
+        df = pd.read_excel(filepath)
+    else:
+        df = pd.read_csv(filepath)
 
     # Check for required Pinnacle odds columns
     missing_cols = _REQUIRED_ODDS_COLS - set(df.columns)
@@ -140,7 +146,6 @@ def upsert_match_odds(conn: sqlite3.Connection, odds_row: dict) -> bool:
             "imported_at": now,
         },
     )
-    conn.commit()
     return True
 
 
@@ -158,7 +163,11 @@ def import_csv_odds(conn: sqlite3.Connection, filepath: str) -> dict:
     # Step 1: Parse CSV (drops rows with missing PSW/PSL)
     # Re-read raw to count skipped_no_odds accurately
     try:
-        raw_df = pd.read_csv(filepath)
+        ext = filepath.rsplit(".", 1)[-1].lower() if "." in filepath else ""
+        if ext in ("xlsx", "xls"):
+            raw_df = pd.read_excel(filepath)
+        else:
+            raw_df = pd.read_csv(filepath)
         total_rows = len(raw_df)
     except Exception:
         total_rows = 0
@@ -166,14 +175,20 @@ def import_csv_odds(conn: sqlite3.Connection, filepath: str) -> dict:
     odds_rows = parse_tennis_data_csv(filepath)
     skipped_no_odds = total_rows - len(odds_rows)
 
-    # Step 2: Link to Sackmann match IDs
+    # Step 2: Link to match IDs
     linked_rows = link_odds_to_matches(conn, odds_rows)
 
     # Step 3: Upsert linked rows
     imported = 0
     unlinked = 0
 
-    for row in linked_rows:
+    try:
+        from tqdm import tqdm
+        upsert_iter = tqdm(linked_rows, desc="Upserting odds", unit="row")
+    except ImportError:
+        upsert_iter = linked_rows
+
+    for row in upsert_iter:
         if row.get("tourney_id") is None:
             unlinked += 1
             continue
@@ -188,6 +203,8 @@ def import_csv_odds(conn: sqlite3.Connection, filepath: str) -> dict:
             "source": "csv",
         })
         imported += 1
+
+    conn.commit()
 
     logger.info(
         "CSV import complete: imported=%d, unlinked=%d, skipped_no_odds=%d",
@@ -215,8 +232,8 @@ def manual_entry(
         conn: SQLite connection.
         tourney_id: Tournament ID (must exist in matches table).
         match_num: Match number (must exist in matches table).
-        decimal_odds_a: Decimal odds for player A (winner in Sackmann convention).
-        decimal_odds_b: Decimal odds for player B (loser in Sackmann convention).
+        decimal_odds_a: Decimal odds for player A (winner).
+        decimal_odds_b: Decimal odds for player B (loser).
         bookmaker: Bookmaker name (default 'pinnacle').
         tour: Tour identifier (default 'ATP').
     """
