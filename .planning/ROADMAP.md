@@ -205,7 +205,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11 -> 12
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11 -> 12 -> 13
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -220,7 +220,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 9. Simulation, Signals & Paper Trading | 4/4 | Complete   | 2026-03-22 |
 | 10. PrizePicks Screenshot CV Tool | 2/2 | Complete    | 2026-03-23 |
 | 11. TML Data Ingestion | 2/2 | Complete    | 2026-03-23 |
-| 12. Pinnacle Odds Feature | 3/3 | Complete   | 2026-03-25 |
+| 12. Pinnacle Odds Feature | 3/3 | Complete    | 2026-03-25 |
+| 13. EV Threshold Filtering | 2/2 | Complete   | 2026-03-25 |
 
 ### Phase 12: Add Pinnacle odds as a feature and retrain on the residual
 
@@ -242,13 +243,21 @@ Plans:
 
 ### Phase 13: Implement EV threshold filtering — only bet when divergence exceeds X percent
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Dual-filter betting pipeline (raw EV gate + CLV divergence gate) with configurable thresholds, a CLV threshold sweep for optimization, and per-tab dashboard CLV sliders with a sweep sensitivity chart
 **Depends on:** Phase 12
-**Plans:** 0 plans
+**Requirements**: EV-01, EV-02, EV-03, EV-04, EV-05, EV-06, EV-07, EV-08
+**Success Criteria** (what must be TRUE):
+  1. compute_kelly_bet applies a CLV gate (model_prob - pinnacle_prob > clv_threshold) before the existing EV gate, filtering low-divergence bets
+  2. Pre-Pinnacle matches (has_no_pinnacle=1) bypass the CLV gate entirely and are evaluated by the EV gate only
+  3. clv_threshold threads through config from CLI/API into run_fold and compute_kelly_bet
+  4. run_clv_sweep runs backtest at 6 CLV thresholds [0.01, 0.02, 0.03, 0.05, 0.07, 0.10] and returns per-threshold ROI/Sharpe/max_drawdown
+  5. Dashboard Signals, Backtest, and Paper Trading tabs each have a CLV threshold slider (0.00-0.15, step 0.01) persisted to distinct localStorage keys
+  6. Backtest tab shows a Threshold Sensitivity section with a Nivo line chart (ROI vs CLV threshold) when sweep results are available
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 13 to break down)
+- [x] 13-01-PLAN.md -- Backend CLV gate in kelly.py, walk_forward SQL/config extension, sweep function, CLI flags, API schema/router
+- [x] 13-02-PLAN.md -- Dashboard CLV sliders (3 tabs), sweep chart (Nivo ResponsiveLine), backtest run hook
 
 ### Phase 14: Add court speed index per tournament
 

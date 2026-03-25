@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Phase complete — ready for verification
-stopped_at: Completed 12-03-PLAN.md
-last_updated: "2026-03-25T01:57:45.919Z"
+stopped_at: Completed 13-02-PLAN.md
+last_updated: "2026-03-25T07:41:22.378Z"
 progress:
   total_phases: 15
-  completed_phases: 12
-  total_plans: 39
-  completed_plans: 39
+  completed_phases: 13
+  total_plans: 41
+  completed_plans: 41
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Accurate, data-driven predictions that identify positive expected value betting opportunities in tennis — measured by demonstrable edge over bookmaker lines in backtesting
-**Current focus:** Phase 12 — add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual
+**Current focus:** Phase 13 — implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent
 
 ## Current Position
 
-Phase: 12 (add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual) — EXECUTING
-Plan: 3 of 3
+Phase: 13 (implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -86,6 +86,8 @@ Plan: 3 of 3
 | Phase 12 P01 | 8 | 1 tasks | 3 files |
 | Phase 12-add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual P02 | 15 | 2 tasks | 8 files |
 | Phase 12-add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual P03 | 7 | 1 tasks | 4 files |
+| Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent P01 | 35 | 2 tasks | 8 files |
+| Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent P02 | 18 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -196,6 +198,11 @@ Recent decisions affecting current work:
 - [Phase 12-add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual]: predictor.py _FEATURE_QUERY extended with pinnacle columns — auto-fix to prevent IndexError when model uses 16-col LOGISTIC_FEATURES
 - [Phase 12-add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual]: predict_pinnacle delegates to predict() — ensemble blending is model-agnostic; no duplication needed
 - [Phase 12-add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual]: Patch target for train_pinnacle mock tests is src.model.MODEL_REGISTRY — train_pinnacle uses local import pattern matching existing ensemble.train()
+- [Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent]: CLV gate at compute_kelly_bet level uses clv_threshold=0.0 default for backward compat; CLI and API default to 0.03 per D-04
+- [Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent]: Loser-side pinnacle_prob = 1.0 - pinnacle_prob_market (devigged probs sum to 1.0); has_no_pinnacle derived from pinnacle_prob_market is None
+- [Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent]: run_clv_sweep docstring explains DB side-effects; after sweep, caller runs regular backtest at configured threshold to leave DB consistent
+- [Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent]: CLV sliders do not apply client-side filtering on Signals/Paper tabs — signals lack pinnacle_prob; values stored for future API use
+- [Phase 13-implement-ev-threshold-filtering-only-bet-when-divergence-exceeds-x-percent]: @nivo/line installed for sweep chart — was absent from package.json despite other nivo packages being present
 
 ### Roadmap Evolution
 
@@ -219,6 +226,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-25T01:57:45.912Z
-Stopped at: Completed 12-03-PLAN.md
+Last session: 2026-03-25T07:41:22.371Z
+Stopped at: Completed 13-02-PLAN.md
 Resume file: None
