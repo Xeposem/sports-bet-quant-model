@@ -8,6 +8,7 @@ Covers:
 - build_feature_row with no sentiment data returns sentiment_score=None
 - build_all_features inserts 2 rows per match into match_features
 - End-to-end look-ahead bias test: features for match M unchanged after adding future match
+- Pinnacle devigged probability extraction and schema columns
 """
 import sqlite3
 from unittest.mock import patch
@@ -360,3 +361,98 @@ class TestLookAheadBias:
         assert row_before["days_since_last"] == row_after["days_since_last"]
         assert row_before["sets_last_7_days"] == row_after["sets_last_7_days"]
         assert row_before["ranking"] == row_after["ranking"]
+
+
+# ---------------------------------------------------------------------------
+# Helpers for Pinnacle tests
+# ---------------------------------------------------------------------------
+
+def _insert_match_odds(conn, tourney_id="T001", match_num=1, tour="ATP",
+                        bookmaker="pinnacle", decimal_odds_a=1.90, decimal_odds_b=2.05):
+    conn.execute(
+        "INSERT OR IGNORE INTO match_odds "
+        "(tourney_id, match_num, tour, bookmaker, decimal_odds_a, decimal_odds_b, source, imported_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, 'manual', '2024-01-14T00:00:00Z')",
+        (tourney_id, match_num, tour, bookmaker, decimal_odds_a, decimal_odds_b),
+    )
+    conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# Tests: _get_pinnacle_prob
+# ---------------------------------------------------------------------------
+
+class TestGetPinnacleProb:
+    def test_get_pinnacle_prob_with_odds(self, db_conn):
+        """_get_pinnacle_prob returns devigged probabilities when match_odds row exists."""
+        from src.features.builder import _get_pinnacle_prob
+        from src.odds.devig import power_method_devig
+
+        _insert_tournament(db_conn)
+        _insert_match(db_conn)
+        _insert_match_odds(db_conn, decimal_odds_a=1.90, decimal_odds_b=2.05)
+
+        result = _get_pinnacle_prob(db_conn, "T001", 1)
+
+        expected_p_a, expected_p_b = power_method_devig(1.90, 2.05)
+        assert result["pinnacle_prob_winner"] == pytest.approx(expected_p_a, abs=0.05)
+        assert result["pinnacle_prob_loser"] == pytest.approx(expected_p_b, abs=0.05)
+        assert result["has_no_pinnacle"] == 0
+
+    def test_get_pinnacle_prob_no_odds(self, db_conn):
+        """_get_pinnacle_prob returns None/None/1 when no match_odds row exists."""
+        from src.features.builder import _get_pinnacle_prob
+
+        result = _get_pinnacle_prob(db_conn, "T999", 99)
+
+        assert result == {"pinnacle_prob_winner": None, "pinnacle_prob_loser": None, "has_no_pinnacle": 1}
+
+    def test_get_pinnacle_prob_invalid_odds(self, db_conn):
+        """_get_pinnacle_prob returns None/None/1 fallback when odds are invalid (< 1.01)."""
+        from src.features.builder import _get_pinnacle_prob
+
+        _insert_tournament(db_conn)
+        _insert_match(db_conn)
+        _insert_match_odds(db_conn, decimal_odds_a=0.5, decimal_odds_b=2.05)
+
+        result = _get_pinnacle_prob(db_conn, "T001", 1)
+
+        assert result["pinnacle_prob_winner"] is None
+        assert result["pinnacle_prob_loser"] is None
+        assert result["has_no_pinnacle"] == 1
+
+    def test_match_features_schema_pinnacle_columns(self, db_conn):
+        """After init_db, match_features table has pinnacle_prob_winner, pinnacle_prob_loser, has_no_pinnacle columns."""
+        cols = [
+            row[1]
+            for row in db_conn.execute("PRAGMA table_info(match_features)").fetchall()
+        ]
+        assert "pinnacle_prob_winner" in cols
+        assert "pinnacle_prob_loser" in cols
+        assert "has_no_pinnacle" in cols
+
+    def test_feature_row_has_pinnacle_keys(self, db_conn):
+        """build_feature_row includes pinnacle keys; with odds returns floats; without odds returns None/None/1."""
+        _insert_tournament(db_conn)
+        _insert_match(db_conn)
+
+        # Case 1: Pinnacle odds row exists — expect non-None float probs
+        _insert_match_odds(db_conn, decimal_odds_a=1.90, decimal_odds_b=2.05)
+        match = _make_match_dict()
+        row_with_odds = build_feature_row(db_conn, match, player_id=1, opponent_id=2, player_role="winner")
+
+        assert "pinnacle_prob_winner" in row_with_odds
+        assert "pinnacle_prob_loser" in row_with_odds
+        assert "has_no_pinnacle" in row_with_odds
+        assert row_with_odds["pinnacle_prob_winner"] is not None
+        assert row_with_odds["pinnacle_prob_loser"] is not None
+        assert row_with_odds["has_no_pinnacle"] == 0
+
+        # Case 2: No Pinnacle odds for a different match — expect None/None/1
+        _insert_match(db_conn, tourney_id="T001", match_num=99, winner_id=3, loser_id=4, date="2024-01-15")
+        match_no_odds = {**_make_match_dict(), "match_num": 99}
+        row_no_odds = build_feature_row(db_conn, match_no_odds, player_id=3, opponent_id=4, player_role="winner")
+
+        assert row_no_odds["pinnacle_prob_winner"] is None
+        assert row_no_odds["pinnacle_prob_loser"] is None
+        assert row_no_odds["has_no_pinnacle"] == 1
