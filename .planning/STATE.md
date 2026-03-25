@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-stopped_at: Completed 12-02-PLAN.md
-last_updated: "2026-03-25T01:51:26.664Z"
+status: Phase complete — ready for verification
+stopped_at: Completed 12-03-PLAN.md
+last_updated: "2026-03-25T01:57:45.919Z"
 progress:
   total_phases: 15
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 39
-  completed_plans: 38
+  completed_plans: 39
 ---
 
 # Project State
@@ -85,6 +85,7 @@ Plan: 3 of 3
 | Phase 11-update-data-ingestion-to-use-stats-tennismylife-org-for-most-recent-atp-match-data P02 | 4 | 2 tasks | 4 files |
 | Phase 12 P01 | 8 | 1 tasks | 3 files |
 | Phase 12-add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual P02 | 15 | 2 tasks | 8 files |
+| Phase 12-add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual P03 | 7 | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -193,6 +194,8 @@ Recent decisions affecting current work:
 - [Phase 12]: Graceful fallback (None, None, 1) for both missing odds and invalid odds — consistent with has_no_elo pattern
 - [Phase 12-add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual]: XGB_FEATURES expanded to 32 (not 31 as planned) — original list had 30 entries; 30+2=32 is correct count
 - [Phase 12-add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual]: predictor.py _FEATURE_QUERY extended with pinnacle columns — auto-fix to prevent IndexError when model uses 16-col LOGISTIC_FEATURES
+- [Phase 12-add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual]: predict_pinnacle delegates to predict() — ensemble blending is model-agnostic; no duplication needed
+- [Phase 12-add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual]: Patch target for train_pinnacle mock tests is src.model.MODEL_REGISTRY — train_pinnacle uses local import pattern matching existing ensemble.train()
 
 ### Roadmap Evolution
 
@@ -216,6 +219,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-25T01:51:26.657Z
-Stopped at: Completed 12-02-PLAN.md
+Last session: 2026-03-25T01:57:45.912Z
+Stopped at: Completed 12-03-PLAN.md
 Resume file: None
