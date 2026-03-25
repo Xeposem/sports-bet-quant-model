@@ -21,8 +21,13 @@ def _lazy_bayesian_predict(trained, features, surface_idx=None):
 
 
 MODEL_REGISTRY = {
-    "logistic_v1": {"train": logistic_train,          "predict": logistic_predict},
-    "xgboost_v1":  {"train": xgb_train,               "predict": xgb_predict},
-    "bayesian_v1": {"train": _lazy_bayesian_train,     "predict": _lazy_bayesian_predict},
-    "ensemble_v1": {"train": ensemble_train,           "predict": ensemble_predict},
+    "logistic_v1":         {"train": logistic_train,          "predict": logistic_predict},
+    "xgboost_v1":          {"train": xgb_train,               "predict": xgb_predict},
+    "bayesian_v1":         {"train": _lazy_bayesian_train,     "predict": _lazy_bayesian_predict},
+    "ensemble_v1":         {"train": ensemble_train,           "predict": ensemble_predict},
+    # Pinnacle-augmented versions: same train/predict functions as base versions.
+    # LOGISTIC_FEATURES and XGB_FEATURES now include pinnacle_prob_diff + has_no_pinnacle,
+    # so these labels serve as tracking identifiers for pinnacle-trained runs.
+    "logistic_v3_pinnacle": {"train": logistic_train,          "predict": logistic_predict},
+    "xgboost_v2_pinnacle":  {"train": xgb_train,               "predict": xgb_predict},
 }

@@ -32,8 +32,8 @@ def make_conn() -> sqlite3.Connection:
 # Synthetic data helpers
 # ---------------------------------------------------------------------------
 
-def make_synthetic_data(n=300, n_features=30, seed=42):
-    """30-column synthetic data to match XGB_FEATURES length."""
+def make_synthetic_data(n=300, n_features=32, seed=42):
+    """32-column synthetic data to match XGB_FEATURES length (30 original + 2 pinnacle)."""
     rng = np.random.default_rng(seed)
     X = rng.standard_normal((n, n_features))
     y = rng.integers(0, 2, size=n).astype(np.float64)
@@ -48,9 +48,9 @@ def make_synthetic_data(n=300, n_features=30, seed=42):
 class TestXGBFeatures:
     def test_xgb_features_length(self):
         from src.model.base import XGB_FEATURES
-        # 16 logistic (including 2 pinnacle) + 11 new numeric (RD diffs, serve stats, h2h_surface, sentiment, sets_7d)
-        # + 5 one-hot context (surface_clay, surface_grass, surface_hard, level_G, level_M) - 1 (round_ordinal already counted)
-        assert len(XGB_FEATURES) == 31
+        # Original 30 features + pinnacle_prob_diff + has_no_pinnacle = 32
+        # (plan comment said "29 original" but actual count before pinnacle was 30)
+        assert len(XGB_FEATURES) == 32
 
     def test_xgb_features_superset_of_logistic(self):
         from src.model.base import LOGISTIC_FEATURES, XGB_FEATURES

@@ -64,7 +64,10 @@ _FOLD_MATRIX_SQL = """
         CASE WHEN COALESCE(w.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_w,
         CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l,
         COALESCE(w.round_ordinal, 3) AS round_ordinal,
-        COALESCE(w.best_of, 3) AS best_of
+        COALESCE(w.best_of, 3) AS best_of,
+        -- Pinnacle devigged probability differential (0 when no odds)
+        COALESCE(w.pinnacle_prob_winner, 0.5) - COALESCE(l.pinnacle_prob_winner, 0.5) AS pinnacle_prob_diff,
+        CASE WHEN w.pinnacle_prob_winner IS NULL THEN 1 ELSE 0 END AS has_no_pinnacle
     FROM match_features w
     JOIN match_features l
       ON  w.tourney_id = l.tourney_id
@@ -103,6 +106,9 @@ _FOLD_TEST_MATCHES_SQL = """
         CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l,
         COALESCE(w.round_ordinal, 3) AS round_ordinal,
         COALESCE(w.best_of, 3) AS best_of,
+        -- Pinnacle devigged probability differential (must come before odds columns)
+        COALESCE(w.pinnacle_prob_winner, 0.5) - COALESCE(l.pinnacle_prob_winner, 0.5) AS pinnacle_prob_diff,
+        CASE WHEN w.pinnacle_prob_winner IS NULL THEN 1 ELSE 0 END AS has_no_pinnacle,
         o.decimal_odds_a, o.decimal_odds_b
     FROM match_features w
     JOIN match_features l
@@ -166,6 +172,9 @@ _FOLD_XGB_TEST_MATCHES_SQL = """
         CASE WHEN w.tourney_level = 'M' THEN 1 ELSE 0 END AS level_M,
         COALESCE(w.round_ordinal, 3) AS round_ordinal,
         COALESCE(w.best_of, 3) AS best_of,
+        -- Pinnacle devigged probability differential (must come before odds columns)
+        COALESCE(w.pinnacle_prob_winner, 0.5) - COALESCE(l.pinnacle_prob_winner, 0.5) AS pinnacle_prob_diff,
+        CASE WHEN w.pinnacle_prob_winner IS NULL THEN 1 ELSE 0 END AS has_no_pinnacle,
         o.decimal_odds_a, o.decimal_odds_b
     FROM match_features w
     JOIN match_features l
@@ -478,10 +487,10 @@ def _train_model_for_fold(model_version, X_train, y_train, X_val, y_val,
 
     Returns (model_or_state, metrics_dict)
     """
-    if model_version == "logistic_v1":
+    if model_version in ("logistic_v1", "logistic_v3_pinnacle"):
         return train_and_calibrate(X_train, y_train, X_val, y_val, w_train)
 
-    elif model_version == "xgboost_v1":
+    elif model_version in ("xgboost_v1", "xgboost_v2_pinnacle"):
         # XGBoost needs XGB_FEATURES-column arrays, NOT the 12-column logistic arrays.
         # Build fresh from DB using build_xgb_training_matrix.
         if conn is None or train_end is None:
@@ -581,13 +590,13 @@ def _predict_with_model(model_version, model_or_state, feature_vec,
 
     Returns calibrated probability (float).
     """
-    if model_version == "logistic_v1":
+    if model_version in ("logistic_v1", "logistic_v3_pinnacle"):
         proba = model_or_state.predict_proba(feature_vec)
         return float(proba[0, 1])
 
-    elif model_version == "xgboost_v1":
+    elif model_version in ("xgboost_v1", "xgboost_v2_pinnacle"):
         if xgb_feature_vec is None:
-            raise ValueError("xgboost_v1 prediction requires xgb_feature_vec (XGB_FEATURES columns)")
+            raise ValueError(f"{model_version} prediction requires xgb_feature_vec (XGB_FEATURES columns)")
         proba = model_or_state.predict_proba(xgb_feature_vec)
         return float(proba[0, 1])
 
@@ -701,7 +710,7 @@ def run_fold(
     # If model needs XGB_FEATURES-column features, fetch XGB test matches too
     xgb_test_matches = None
     xgb_features_by_match: dict = {}
-    if model_version in ("xgboost_v1", "ensemble_v1"):
+    if model_version in ("xgboost_v1", "xgboost_v2_pinnacle", "ensemble_v1", "ensemble_v2_pinnacle"):
         xgb_test_matches = build_fold_xgb_test_matches(conn, test_start, test_end)
         # Build a lookup dict keyed by (tourney_id, match_num, tour) for fast pairing
         xgb_features_by_match = {
@@ -730,7 +739,7 @@ def run_fold(
 
         # Get 27/28-column XGB feature vector if needed
         xgb_feature_vec = None
-        if model_version in ("xgboost_v1", "ensemble_v1"):
+        if model_version in ("xgboost_v1", "xgboost_v2_pinnacle", "ensemble_v1", "ensemble_v2_pinnacle"):
             match_key = (tourney_id, match_num, tour)
             xgb_feat = xgb_features_by_match.get(match_key)
             if xgb_feat is not None:

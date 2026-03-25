@@ -6,7 +6,7 @@ Moved from trainer.py to provide a common foundation for all model types
 in the registry-based architecture (logistic, xgboost, bayesian, ensemble).
 
 Key exports:
-  - LOGISTIC_FEATURES: curated feature list constant (14 entries)
+  - LOGISTIC_FEATURES: curated feature list constant (16 entries)
   - build_training_matrix: assemble X, y, match_dates from match_features table
   - compute_time_weights: exponential time-decay sample weights
   - temporal_split: chronological 80/20 train/validation split
@@ -45,6 +45,8 @@ LOGISTIC_FEATURES = [
     "has_no_elo_l",       # 1 if loser has default Elo (no real rating yet)
     "round_ordinal",      # round stage (1=R128 .. 7=F), non-differential
     "best_of",            # best-of format (3 or 5), non-differential
+    "pinnacle_prob_diff", # devigged Pinnacle prob: winner - loser (0 when no odds)
+    "has_no_pinnacle",    # 1 if no Pinnacle odds available for this match
 ]
 
 # ---------------------------------------------------------------------------
@@ -74,7 +76,10 @@ _BUILD_MATRIX_SQL = """
         CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l,
         -- Match context (non-differential, same for both players)
         COALESCE(w.round_ordinal, 3) AS round_ordinal,
-        COALESCE(w.best_of, 3) AS best_of
+        COALESCE(w.best_of, 3) AS best_of,
+        -- Pinnacle devigged probability differential (0 when no odds)
+        COALESCE(w.pinnacle_prob_winner, 0.5) - COALESCE(l.pinnacle_prob_winner, 0.5) AS pinnacle_prob_diff,
+        CASE WHEN w.pinnacle_prob_winner IS NULL THEN 1 ELSE 0 END AS has_no_pinnacle
     FROM match_features w
     JOIN match_features l
       ON  w.tourney_id = l.tourney_id
@@ -232,6 +237,7 @@ def augment_with_flipped(
         "surface_clay", "surface_grass", "surface_hard",
         "level_G", "level_M",
         "round_ordinal", "best_of",
+        "has_no_pinnacle",
     ]
     for col in _NON_DIFF_COLS:
         if col in feature_list:
@@ -308,6 +314,8 @@ XGB_FEATURES = [
     "level_M",              # one-hot: 1 if tourney_level=M (Masters)
     "round_ordinal",        # round stage (1=R128 .. 7=F)
     "best_of",              # best-of format (3 or 5)
+    "pinnacle_prob_diff",   # devigged Pinnacle prob: winner - loser
+    "has_no_pinnacle",      # 1 if no Pinnacle odds available
 ]
 
 # ---------------------------------------------------------------------------
@@ -351,7 +359,10 @@ _BUILD_XGB_MATRIX_SQL = """
         CASE WHEN w.tourney_level = 'M' THEN 1 ELSE 0 END AS level_M,
         -- Match context
         COALESCE(w.round_ordinal, 3) AS round_ordinal,
-        COALESCE(w.best_of, 3) AS best_of
+        COALESCE(w.best_of, 3) AS best_of,
+        -- Pinnacle devigged probability differential (0 when no odds)
+        COALESCE(w.pinnacle_prob_winner, 0.5) - COALESCE(l.pinnacle_prob_winner, 0.5) AS pinnacle_prob_diff,
+        CASE WHEN w.pinnacle_prob_winner IS NULL THEN 1 ELSE 0 END AS has_no_pinnacle
     FROM match_features w
     JOIN match_features l
       ON  w.tourney_id = l.tourney_id
@@ -374,8 +385,8 @@ def build_xgb_training_matrix(
     """
     Assemble pairwise differential training matrix with ALL match_features columns.
 
-    Like build_training_matrix but uses XGB_FEATURES (30 columns) instead of
-    LOGISTIC_FEATURES (14). Includes RD diffs, serve stats, surface/level one-hots.
+    Like build_training_matrix but uses XGB_FEATURES (31 columns) instead of
+    LOGISTIC_FEATURES (16). Includes RD diffs, serve stats, surface/level one-hots, pinnacle.
 
     Parameters
     ----------

@@ -73,7 +73,10 @@ _FEATURE_QUERY = """
         CASE WHEN COALESCE(w.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_w,
         CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l,
         COALESCE(w.round_ordinal, 3) AS round_ordinal,
-        COALESCE(w.best_of, 3) AS best_of
+        COALESCE(w.best_of, 3) AS best_of,
+        -- Pinnacle devigged probability differential (0 when no odds)
+        COALESCE(w.pinnacle_prob_winner, 0.5) - COALESCE(l.pinnacle_prob_winner, 0.5) AS pinnacle_prob_diff,
+        CASE WHEN w.pinnacle_prob_winner IS NULL THEN 1 ELSE 0 END AS has_no_pinnacle
     FROM match_features w
     JOIN match_features l
       ON  w.tourney_id = l.tourney_id

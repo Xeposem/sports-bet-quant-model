@@ -345,9 +345,10 @@ def make_synthetic_data(n=300, seed=42):
     """
     Generate synthetic binary classification data with known separability.
     Returns X, y as numpy arrays.
+    Uses 16 columns to match current LOGISTIC_FEATURES length (14 original + 2 pinnacle).
     """
     rng = np.random.default_rng(seed)
-    X = rng.standard_normal((n, 14))
+    X = rng.standard_normal((n, 16))
     # Simple linear boundary: positive if first feature > 0
     y = (X[:, 0] > 0).astype(float)
     return X, y
