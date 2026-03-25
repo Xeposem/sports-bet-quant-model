@@ -426,6 +426,155 @@ class TestCLVConfigThreading:
             )
 
 
+# ---------------------------------------------------------------------------
+# Task 2 (Phase 13): Sweep function, CLI flags, API schema tests
+# ---------------------------------------------------------------------------
+
+
+class TestCLVSweep:
+    def test_sweep_returns_list_per_threshold(self):
+        """run_clv_sweep returns list of dicts, one per threshold, with required keys."""
+        from unittest.mock import patch
+        from src.backtest.walk_forward import run_clv_sweep
+        import sqlite3
+
+        mock_conn = __import__('unittest').mock.MagicMock(spec=sqlite3.Connection)
+        mock_summary = {
+            "bets_placed": 42,
+            "total_pnl_kelly": 100.0,
+            "final_bankroll": 1100.0,
+        }
+        mock_conn.execute.return_value.fetchall.return_value = []  # no rows for _compute_sweep_metrics
+
+        with patch("src.backtest.walk_forward.run_walk_forward", return_value=mock_summary):
+            results = run_clv_sweep(mock_conn, {}, thresholds=[0.01, 0.05])
+
+        assert len(results) == 2, f"Expected 2 results, got {len(results)}"
+        for r in results:
+            assert "clv_threshold" in r
+            assert "bets_placed" in r
+            assert "roi" in r
+            assert "sharpe" in r
+            assert "max_drawdown" in r
+
+    def test_sweep_calls_run_walk_forward_per_threshold(self):
+        """run_clv_sweep calls run_walk_forward once for each threshold."""
+        from unittest.mock import patch, MagicMock
+        from src.backtest.walk_forward import run_clv_sweep
+        import sqlite3
+
+        mock_conn = MagicMock(spec=sqlite3.Connection)
+        mock_conn.execute.return_value.fetchall.return_value = []
+
+        with patch("src.backtest.walk_forward.run_walk_forward") as mock_rwf:
+            mock_rwf.return_value = {"bets_placed": 10, "total_pnl_kelly": 0.0, "final_bankroll": 1000.0}
+            run_clv_sweep(mock_conn, {}, thresholds=[0.01, 0.02, 0.03])
+
+        assert mock_rwf.call_count == 3, f"Expected 3 calls, got {mock_rwf.call_count}"
+
+    def test_sweep_passes_threshold_in_config(self):
+        """Each run_walk_forward call receives the correct clv_threshold."""
+        from unittest.mock import patch, MagicMock, call
+        from src.backtest.walk_forward import run_clv_sweep
+        import sqlite3
+
+        mock_conn = MagicMock(spec=sqlite3.Connection)
+        mock_conn.execute.return_value.fetchall.return_value = []
+
+        with patch("src.backtest.walk_forward.run_walk_forward") as mock_rwf:
+            mock_rwf.return_value = {"bets_placed": 5, "total_pnl_kelly": 0.0, "final_bankroll": 1000.0}
+            run_clv_sweep(mock_conn, {}, thresholds=[0.02, 0.05])
+
+        configs_used = [c[0][1] for c in mock_rwf.call_args_list]  # (conn, config)
+        thresholds_used = [c.get("clv_threshold") for c in configs_used]
+        assert 0.02 in thresholds_used
+        assert 0.05 in thresholds_used
+
+
+class TestCLIFlags:
+    def test_cli_clv_threshold_flag(self):
+        """_build_parser() recognizes --clv-threshold with default 0.03."""
+        from src.backtest.runner import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args([])
+        assert hasattr(args, "clv_threshold"), "Expected clv_threshold arg"
+        assert args.clv_threshold == 0.03, f"Expected default 0.03, got {args.clv_threshold}"
+
+    def test_cli_sweep_flag(self):
+        """_build_parser() recognizes --sweep boolean flag."""
+        from src.backtest.runner import _build_parser
+
+        parser = _build_parser()
+        args_no_sweep = parser.parse_args([])
+        assert not args_no_sweep.sweep, "Expected sweep=False by default"
+
+        args_with_sweep = parser.parse_args(["--sweep"])
+        assert args_with_sweep.sweep is True, "Expected sweep=True with --sweep flag"
+
+    def test_cli_clv_threshold_custom_value(self):
+        """--clv-threshold accepts a custom float value."""
+        from src.backtest.runner import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args(["--clv-threshold", "0.07"])
+        assert args.clv_threshold == 0.07
+
+
+class TestAPISchema:
+    def test_backtest_run_request_has_clv_threshold(self):
+        """BacktestRunRequest has clv_threshold with default 0.03."""
+        from src.api.schemas import BacktestRunRequest
+
+        req = BacktestRunRequest()
+        assert hasattr(req, "clv_threshold"), "Expected clv_threshold field"
+        assert req.clv_threshold == 0.03, f"Expected default 0.03, got {req.clv_threshold}"
+
+    def test_backtest_run_request_has_sweep(self):
+        """BacktestRunRequest has sweep boolean field with default False."""
+        from src.api.schemas import BacktestRunRequest
+
+        req = BacktestRunRequest()
+        assert hasattr(req, "sweep"), "Expected sweep field"
+        assert req.sweep is False
+
+    def test_backtest_run_request_custom_clv(self):
+        """BacktestRunRequest(clv_threshold=0.05, sweep=True) parses correctly."""
+        from src.api.schemas import BacktestRunRequest
+
+        req = BacktestRunRequest(clv_threshold=0.05, sweep=True)
+        assert req.clv_threshold == 0.05
+        assert req.sweep is True
+
+    def test_sweep_result_entry_schema(self):
+        """SweepResultEntry schema exists with required fields."""
+        from src.api.schemas import SweepResultEntry
+
+        entry = SweepResultEntry(
+            clv_threshold=0.03,
+            bets_placed=42,
+            roi=0.05,
+            sharpe=0.8,
+            max_drawdown=0.15,
+            total_pnl=500.0,
+            final_bankroll=1500.0,
+        )
+        assert entry.clv_threshold == 0.03
+        assert entry.bets_placed == 42
+
+    def test_sweep_response_schema(self):
+        """SweepResponse wraps list of SweepResultEntry."""
+        from src.api.schemas import SweepResponse, SweepResultEntry
+
+        response = SweepResponse(results=[
+            SweepResultEntry(
+                clv_threshold=0.03, bets_placed=10, roi=0.04,
+                sharpe=0.5, max_drawdown=0.1, total_pnl=100.0, final_bankroll=1100.0,
+            )
+        ])
+        assert len(response.results) == 1
+
+
 class TestRunWalkForward:
     def test_run_walk_forward(self, db_with_matches):
         """run_walk_forward returns summary dict with required keys; bankroll carries across folds."""
