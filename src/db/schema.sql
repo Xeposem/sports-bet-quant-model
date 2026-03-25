@@ -171,6 +171,10 @@ CREATE TABLE IF NOT EXISTS match_features (
     surface                 TEXT,
     -- Sentiment
     sentiment_score         REAL,
+    -- Pinnacle devigged market probability (NULL when no Pinnacle odds exist)
+    pinnacle_prob_winner    REAL,
+    pinnacle_prob_loser     REAL,
+    has_no_pinnacle         INTEGER,
     PRIMARY KEY (tourney_id, match_num, tour, player_role),
     FOREIGN KEY (tourney_id, match_num, tour) REFERENCES matches(tourney_id, match_num, tour)
 );
