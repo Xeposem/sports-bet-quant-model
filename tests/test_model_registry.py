@@ -201,12 +201,12 @@ class TestEnsembleV2Pinnacle:
             "train_dates": fake_dates, "val_dates": fake_dates,
         }
 
-        with patch("src.model.ensemble.MODEL_REGISTRY", fake_registry), \
-             patch("src.model.ensemble.build_training_matrix",
+        with patch("src.model.MODEL_REGISTRY", fake_registry), \
+             patch("src.model.base.build_training_matrix",
                    return_value=(fake_X, fake_y, fake_dates)), \
-             patch("src.model.ensemble.compute_time_weights",
+             patch("src.model.base.compute_time_weights",
                    return_value=np.ones(10)), \
-             patch("src.model.ensemble.temporal_split",
+             patch("src.model.base.temporal_split",
                    return_value=fake_split):
             state, metrics = train_pinnacle(fake_conn)
 

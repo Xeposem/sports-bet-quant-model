@@ -572,6 +572,49 @@ def _train_model_for_fold(model_version, X_train, y_train, X_val, y_val,
         ensemble_metrics = {"val_brier_score": None, "component_weights": weights}
         return ensemble_state, ensemble_metrics
 
+    elif model_version == "ensemble_v2_pinnacle":
+        # Train logistic_v3_pinnacle + xgboost_v2_pinnacle with correct feature dimensions.
+        if conn is None or train_end is None:
+            raise ValueError("ensemble_v2_pinnacle requires conn and train_end")
+        from src.model.xgboost_model import train_fold as xgb_train_fold
+        from src.model.ensemble import compute_weights
+        models = {}
+        brier_scores = {}
+
+        # --- Logistic v3 (pinnacle): uses 16-column arrays (already provided) ---
+        try:
+            log_model, log_metrics = train_and_calibrate(
+                X_train, y_train, X_val, y_val, w_train
+            )
+            models["logistic_v3_pinnacle"] = log_model
+            brier_scores["logistic_v3_pinnacle"] = log_metrics["val_brier_score"]
+        except Exception as exc:
+            logger.warning("Ensemble fold: logistic_v3_pinnacle failed: %s", exc)
+
+        # --- XGBoost v2 (pinnacle): needs XGB_FEATURES-column arrays ---
+        try:
+            X_xgb, y_xgb, xgb_dates = build_xgb_training_matrix(conn, train_end)
+            w_xgb = compute_time_weights(xgb_dates, reference_date=train_end)
+            xgb_split = temporal_split(X_xgb, y_xgb, w_xgb, xgb_dates)
+            xgb_model, xgb_metrics = xgb_train_fold(
+                xgb_split["X_train"], xgb_split["y_train"],
+                xgb_split["X_val"], xgb_split["y_val"],
+                xgb_split["w_train"], config,
+            )
+            models["xgboost_v2_pinnacle"] = xgb_model
+            brier_scores["xgboost_v2_pinnacle"] = xgb_metrics["val_brier_score"]
+        except Exception as exc:
+            logger.warning("Ensemble fold: xgboost_v2_pinnacle failed: %s", exc)
+
+        weights = compute_weights(brier_scores)
+        ensemble_state = {
+            "models": models,
+            "weights": weights,
+            "brier_scores": brier_scores,
+        }
+        ensemble_metrics = {"val_brier_score": None, "component_weights": weights}
+        return ensemble_state, ensemble_metrics
+
     else:
         raise ValueError(f"Unknown model_version: {model_version}")
 
@@ -626,6 +669,33 @@ def _predict_with_model(model_version, model_or_state, feature_vec,
                     from src.model.bayesian import predict as bp
                     r = bp(m, feature_vec.flatten())
                     predictions[mk] = r["calibrated_prob"]
+            except Exception as exc:
+                logger.warning("Ensemble predict %s failed: %s", mk, exc)
+        if not predictions:
+            return 0.5
+        avail_w = {k: weights[k] for k in predictions if k in weights}
+        total = sum(avail_w.values())
+        norm_w = ({k: v / total for k, v in avail_w.items()}
+                  if total > 0 else {k: 1 / len(predictions) for k in predictions})
+        return blend(predictions, norm_w)
+
+    elif model_version == "ensemble_v2_pinnacle":
+        from src.model.ensemble import blend
+        predictions = {}
+        weights = model_or_state["weights"]
+        for mk, m in model_or_state["models"].items():
+            if mk not in weights:
+                continue
+            try:
+                if mk in ("logistic_v1", "logistic_v3_pinnacle"):
+                    proba = m.predict_proba(feature_vec)
+                    predictions[mk] = float(proba[0, 1])
+                elif mk in ("xgboost_v1", "xgboost_v2_pinnacle"):
+                    if xgb_feature_vec is None:
+                        logger.warning("Ensemble predict: %s skipped, no xgb_feature_vec", mk)
+                        continue
+                    proba = m.predict_proba(xgb_feature_vec)
+                    predictions[mk] = float(proba[0, 1])
             except Exception as exc:
                 logger.warning("Ensemble predict %s failed: %s", mk, exc)
         if not predictions:
