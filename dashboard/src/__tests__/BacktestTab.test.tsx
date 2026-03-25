@@ -7,13 +7,20 @@ vi.mock('@nivo/bar', () => ({
   ResponsiveBar: () => null,
 }));
 
+// Mock @nivo/line — ResponsiveLine can't render in jsdom
+vi.mock('@nivo/line', () => ({
+  ResponsiveLine: () => null,
+}));
+
 // Mock hooks
 vi.mock('../hooks/useBacktest', () => ({
   useBacktestSummary: vi.fn(),
   useBacktestBets: vi.fn(),
+  useRunBacktest: vi.fn(),
+  useBacktestJobStatus: vi.fn(),
 }));
 
-import { useBacktestSummary, useBacktestBets } from '../hooks/useBacktest';
+import { useBacktestSummary, useBacktestBets, useRunBacktest, useBacktestJobStatus } from '../hooks/useBacktest';
 
 const mockSummary = {
   n_bets: 100,
@@ -85,6 +92,17 @@ describe('BacktestTab', () => {
       isLoading: false,
       isError: false,
     } as unknown as ReturnType<typeof useBacktestBets>);
+
+    vi.mocked(useRunBacktest).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useRunBacktest>);
+
+    vi.mocked(useBacktestJobStatus).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useBacktestJobStatus>);
   });
 
   it('renders filter bar with Surface, Year, Model labels', () => {
@@ -138,5 +156,26 @@ describe('BacktestTab', () => {
   it('renders bet history table with "Showing" pagination text', () => {
     render(<BacktestTab />);
     expect(screen.getByText(/Showing/)).toBeInTheDocument();
+  });
+
+  it('renders CLV threshold slider with aria-label', () => {
+    render(<BacktestTab />);
+    expect(screen.getByRole('slider', { name: /clv threshold/i })).toBeInTheDocument();
+  });
+
+  it('CLV slider default value is 0.03', () => {
+    render(<BacktestTab />);
+    const slider = screen.getByRole('slider', { name: /clv threshold/i }) as HTMLInputElement;
+    expect(parseFloat(slider.value)).toBeCloseTo(0.03, 2);
+  });
+
+  it('renders Threshold Sensitivity section heading', () => {
+    render(<BacktestTab />);
+    expect(screen.getByText('Threshold Sensitivity')).toBeInTheDocument();
+  });
+
+  it('renders Run Threshold Sweep button', () => {
+    render(<BacktestTab />);
+    expect(screen.getByText('Run Threshold Sweep')).toBeInTheDocument();
   });
 });

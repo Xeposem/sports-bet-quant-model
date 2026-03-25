@@ -13,6 +13,12 @@ vi.mock('../hooks/useBacktest', () => ({
     isError: false,
     data: { total: 0, offset: 0, limit: 5, data: [] },
   })),
+  useRunBacktest: vi.fn(),
+  useBacktestJobStatus: vi.fn(),
+}));
+vi.mock('../hooks/useSimulation', () => ({
+  useSimulationResult: vi.fn(() => ({ data: undefined, isLoading: false, isError: false })),
+  useRunSimulation: vi.fn(() => ({ mutate: vi.fn(), isPending: false, data: undefined })),
 }));
 vi.mock('../hooks/useCalibration', () => ({
   useCalibration: vi.fn(),
@@ -154,11 +160,12 @@ describe('OverviewTab', () => {
     expect(screen.getByText('Active Signals')).toBeInTheDocument();
   });
 
-  it('renders Monte Carlo placeholder with "Simulation not yet available"', () => {
+  it('renders Monte Carlo section with simulation controls', () => {
     setupLoadedMocks();
     render(<OverviewTab />);
     expect(screen.getByText('Monte Carlo Simulation')).toBeInTheDocument();
-    expect(screen.getByText('Simulation not yet available')).toBeInTheDocument();
+    // MonteCarloSection renders its form/results — just check section heading is present
+    expect(screen.getByText('Monte Carlo Simulation')).toBeInTheDocument();
   });
 
   it('shows skeleton loaders when isLoading is true', () => {

@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiFetch } from '../api/client';
-import type { BacktestSummary, PaginatedBetsResponse } from '../api/types';
+import type { BacktestSummary, PaginatedBetsResponse, SweepResultEntry } from '../api/types';
 
 export function useBacktestSummary(params?: { surface?: string; year?: string; model?: string }) {
   const searchParams = new URLSearchParams();
@@ -28,5 +28,57 @@ export function useBacktestBets(offset: number, limit: number, filters?: Record<
     },
     staleTime: Infinity,
     retry: 1,
+  });
+}
+
+interface BacktestRunParams {
+  kelly_fraction?: number;
+  max_bet_pct?: number;
+  ev_threshold?: number;
+  initial_bankroll?: number;
+  model_version?: string;
+  clv_threshold?: number;
+  sweep?: boolean;
+}
+
+interface BacktestJobResponse {
+  job_id: string;
+  status: string;
+}
+
+export function useRunBacktest() {
+  return useMutation<BacktestJobResponse, Error, BacktestRunParams>({
+    mutationFn: (params) =>
+      apiFetch<BacktestJobResponse>('/backtest/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      }),
+  });
+}
+
+interface BacktestJobStatus {
+  job_id: string;
+  status: string;
+  started_at?: string;
+  result?: {
+    sweep?: SweepResultEntry[];
+    folds_run?: number;
+    bets_placed?: number;
+    total_pnl_kelly?: number;
+    final_bankroll?: number;
+  };
+}
+
+export function useBacktestJobStatus(jobId: string | null) {
+  return useQuery<BacktestJobStatus>({
+    queryKey: ['backtest-job', jobId],
+    queryFn: () => apiFetch<BacktestJobStatus>(`/backtest/run/status?job_id=${jobId}`),
+    enabled: !!jobId,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data?.status === 'complete' || data?.status === 'failed') return false;
+      return 2000;
+    },
   });
 }

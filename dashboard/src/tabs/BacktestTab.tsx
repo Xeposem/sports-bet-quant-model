@@ -1,5 +1,8 @@
-import { useState } from 'react';
-import { useBacktestSummary, useBacktestBets } from '@/hooks/useBacktest';
+import { useState, useEffect } from 'react';
+import { useBacktestSummary, useBacktestBets, useRunBacktest, useBacktestJobStatus } from '@/hooks/useBacktest';
+import { ResponsiveLine } from '@nivo/line';
+import { toast } from 'sonner';
+import type { SweepResultEntry } from '@/api/types';
 import { RoiBarChart } from '@/components/charts/RoiBarChart';
 import { FilterBar } from '@/components/shared/FilterBar';
 import { FilterChip } from '@/components/shared/FilterChip';
@@ -45,6 +48,35 @@ export function BacktestTab() {
     model: '',
   });
   const [page, setPage] = useState(0);
+  const [clvThreshold, setClvThreshold] = useState<number>(() => {
+    const stored = localStorage.getItem('clv_threshold_backtest');
+    return stored ? parseFloat(stored) : 0.03;
+  });
+  const handleClvChange = (val: number) => {
+    setClvThreshold(val);
+    localStorage.setItem('clv_threshold_backtest', String(val));
+  };
+  const [sweepJobId, setSweepJobId] = useState<string | null>(null);
+  const [sweepResults, setSweepResults] = useState<SweepResultEntry[] | null>(null);
+  const runBacktest = useRunBacktest();
+  const jobStatus = useBacktestJobStatus(sweepJobId);
+
+  useEffect(() => {
+    if (jobStatus.data?.status === 'complete' && jobStatus.data.result?.sweep) {
+      setSweepResults(jobStatus.data.result.sweep);
+      setSweepJobId(null);
+    }
+  }, [jobStatus.data]);
+
+  const handleRunSweep = () => {
+    runBacktest.mutate(
+      { clv_threshold: clvThreshold, sweep: true },
+      {
+        onSuccess: (data) => setSweepJobId(data.job_id),
+        onError: () => toast.error('Failed to start sweep'),
+      }
+    );
+  };
 
   const { data: summary, isLoading: summaryLoading, isError: summaryError } = useBacktestSummary(filterParams);
   const { data: betsData, isLoading: betsLoading } = useBacktestBets(
@@ -114,6 +146,20 @@ export function BacktestTab() {
   return (
     <div>
       <FilterBar filters={filters} />
+      {/* CLV Threshold Slider */}
+      <div className="px-6 pt-4 pb-2 flex items-center gap-4">
+        <span className="text-sm text-slate-400 whitespace-nowrap">CLV: {clvThreshold.toFixed(2)}</span>
+        <input
+          type="range"
+          min={0}
+          max={0.15}
+          step={0.01}
+          value={clvThreshold}
+          onChange={(e) => handleClvChange(parseFloat(e.target.value))}
+          className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+          aria-label="CLV threshold"
+        />
+      </div>
 
       <div className="p-6 space-y-6">
         {/* ROI Charts Grid — 4 charts in 2x2, then 1 full-width */}
@@ -194,6 +240,94 @@ export function BacktestTab() {
             />
           </div>
         )}
+
+        {/* Threshold Sensitivity Section */}
+        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs uppercase tracking-wider text-slate-400">Threshold Sensitivity</h3>
+            <button
+              onClick={handleRunSweep}
+              disabled={runBacktest.isPending || !!sweepJobId}
+              className="text-xs px-3 py-1.5 rounded bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/40 disabled:opacity-50 border border-cyan-500/30"
+            >
+              {sweepJobId ? 'Running...' : 'Run Threshold Sweep'}
+            </button>
+          </div>
+          {sweepJobId && (
+            <p className="text-sm text-slate-400 text-center py-4">Running sweep, please wait...</p>
+          )}
+          {sweepResults && sweepResults.length > 0 && (
+            <>
+              <div className="overflow-x-auto mb-4">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-700">
+                      <th className="px-2 py-1 text-left text-xs text-slate-500 uppercase">Threshold</th>
+                      <th className="px-2 py-1 text-left text-xs text-slate-500 uppercase">Bets</th>
+                      <th className="px-2 py-1 text-left text-xs text-slate-500 uppercase">ROI</th>
+                      <th className="px-2 py-1 text-left text-xs text-slate-500 uppercase">Sharpe</th>
+                      <th className="px-2 py-1 text-left text-xs text-slate-500 uppercase">Max DD</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sweepResults.map((r) => (
+                      <tr key={r.clv_threshold} className="border-b border-slate-700/50">
+                        <td className="px-2 py-1 text-slate-300">{r.clv_threshold.toFixed(2)}</td>
+                        <td className="px-2 py-1 text-slate-300">{r.bets_placed}</td>
+                        <td className={`px-2 py-1 font-medium ${r.roi >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {(r.roi * 100).toFixed(1)}%
+                        </td>
+                        <td className="px-2 py-1 text-slate-300">{r.sharpe.toFixed(2)}</td>
+                        <td className="px-2 py-1 text-red-400">{(r.max_drawdown * 100).toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="h-[300px]">
+                <ResponsiveLine
+                  data={[{
+                    id: 'ROI',
+                    data: sweepResults.map(r => ({ x: r.clv_threshold, y: r.roi * 100 }))
+                  }]}
+                  margin={{ top: 20, right: 30, bottom: 50, left: 60 }}
+                  xScale={{ type: 'linear', min: 0, max: 0.12 }}
+                  yScale={{ type: 'linear', stacked: false }}
+                  axisBottom={{
+                    legend: 'CLV Threshold',
+                    legendOffset: 36,
+                    legendPosition: 'middle' as const,
+                    format: (v: number) => v.toFixed(2),
+                  }}
+                  axisLeft={{
+                    legend: 'ROI (%)',
+                    legendOffset: -50,
+                    legendPosition: 'middle' as const,
+                  }}
+                  colors={['#22c55e']}
+                  pointSize={8}
+                  pointColor="#22c55e"
+                  pointBorderWidth={2}
+                  pointBorderColor="#0f172a"
+                  enableGridX={false}
+                  theme={{
+                    text: { fill: '#94a3b8' },
+                    axis: {
+                      ticks: { text: { fill: '#94a3b8' } },
+                      legend: { text: { fill: '#94a3b8' } },
+                    },
+                    grid: { line: { stroke: '#1e293b' } },
+                    crosshair: { line: { stroke: '#475569' } },
+                    tooltip: {
+                      container: { background: '#1e293b', color: '#e2e8f0', borderRadius: '8px' },
+                    },
+                  }}
+                  useMesh={true}
+                />
+              </div>
+            </>
+          )}
+        </div>
 
         {/* Bet History Table */}
         <div className="rounded-lg overflow-hidden border border-slate-700">
