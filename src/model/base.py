@@ -422,3 +422,243 @@ def build_xgb_training_matrix(
     )
     y = np.ones(len(rows), dtype=np.float64)
     return X, y, match_dates
+
+
+# ---------------------------------------------------------------------------
+# CSI feature sets (v4 logistic, v3 XGBoost) — extends existing constants
+# CRITICAL: Do NOT modify LOGISTIC_FEATURES or XGB_FEATURES in place.
+# Old model versions (logistic_v1, v3_pinnacle, xgboost_v1, v2_pinnacle) are
+# serialized with 16/32 features; modifying in place would break prediction.
+# ---------------------------------------------------------------------------
+
+#: Extended logistic feature set for logistic_v4.
+#: 19 entries = 16 existing LOGISTIC_FEATURES + 3 CSI features.
+LOGISTIC_V4_FEATURES = LOGISTIC_FEATURES + [
+    "court_speed_index",     # raw CSI of the venue (non-differential, same for both players)
+    "has_no_csi",            # 1 if venue lacks sufficient match history
+    "speed_affinity_diff",   # winner.speed_affinity - loser.speed_affinity
+]
+
+#: Extended XGBoost feature set for xgboost_v3.
+#: 35 entries = 32 existing XGB_FEATURES + 3 CSI features.
+XGB_V3_FEATURES = XGB_FEATURES + [
+    "court_speed_index",     # non-differential venue property
+    "has_no_csi",            # indicator
+    "speed_affinity_diff",   # differential
+]
+
+# ---------------------------------------------------------------------------
+# SQL templates for v4/v3 training matrix assembly (with CSI JOINs)
+# ---------------------------------------------------------------------------
+
+_BUILD_V4_MATRIX_SQL = """
+    SELECT
+        m.tourney_date,
+        -- Elo differentials (COALESCE 1500 for NULL = default rating, so diff = 0)
+        COALESCE(w.elo_overall, 1500.0) - COALESCE(l.elo_overall, 1500.0)   AS elo_diff,
+        COALESCE(w.elo_hard,    1500.0) - COALESCE(l.elo_hard,    1500.0)   AS elo_hard_diff,
+        COALESCE(w.elo_clay,    1500.0) - COALESCE(l.elo_clay,    1500.0)   AS elo_clay_diff,
+        COALESCE(w.elo_grass,   1500.0) - COALESCE(l.elo_grass,   1500.0)   AS elo_grass_diff,
+        -- Ranking differential (lower rank number = better, so sign convention kept raw)
+        COALESCE(w.ranking, 0)       - COALESCE(l.ranking, 0)               AS ranking_diff,
+        COALESCE(w.ranking_delta, 0) - COALESCE(l.ranking_delta, 0)         AS ranking_delta_diff,
+        -- H2H balance: winner's net H2H record (wins minus losses)
+        COALESCE(w.h2h_wins, 0)  - COALESCE(w.h2h_losses, 0)               AS h2h_balance,
+        -- Form differentials (NULL -> 0.5 neutral win rate)
+        COALESCE(w.form_win_rate_10, 0.5) - COALESCE(l.form_win_rate_10, 0.5) AS form_diff_10,
+        COALESCE(w.form_win_rate_20, 0.5) - COALESCE(l.form_win_rate_20, 0.5) AS form_diff_20,
+        -- Fatigue: days since last match differential
+        COALESCE(w.days_since_last, 0) - COALESCE(l.days_since_last, 0)     AS fatigue_diff,
+        -- Boolean indicators for missing Elo data (default Elo = 1500.0)
+        CASE WHEN COALESCE(w.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_w,
+        CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l,
+        -- Match context (non-differential, same for both players)
+        COALESCE(w.round_ordinal, 3) AS round_ordinal,
+        COALESCE(w.best_of, 3) AS best_of,
+        -- Pinnacle devigged probability differential (0 when no odds)
+        COALESCE(w.pinnacle_prob_winner, 0.5) - COALESCE(l.pinnacle_prob_winner, 0.5) AS pinnacle_prob_diff,
+        CASE WHEN w.pinnacle_prob_winner IS NULL THEN 1 ELSE 0 END AS has_no_pinnacle,
+        -- Court speed index (non-differential venue property)
+        COALESCE(csi.csi_value, surface_avg.avg_csi, 0.5) AS court_speed_index,
+        CASE WHEN csi.csi_value IS NULL THEN 1 ELSE 0 END AS has_no_csi,
+        -- Speed affinity differential
+        COALESCE(w.speed_affinity, 0.0) - COALESCE(l.speed_affinity, 0.0) AS speed_affinity_diff
+    FROM match_features w
+    JOIN match_features l
+      ON  w.tourney_id = l.tourney_id
+      AND w.match_num  = l.match_num
+      AND w.tour       = l.tour
+    JOIN matches m
+      ON  w.tourney_id = m.tourney_id
+      AND w.match_num  = m.match_num
+      AND w.tour       = m.tour
+    LEFT JOIN court_speed_index csi
+      ON  w.tourney_id = csi.tourney_id AND csi.tour = w.tour
+    LEFT JOIN (
+        SELECT surface, AVG(csi_value) AS avg_csi
+        FROM court_speed_index
+        GROUP BY surface
+    ) surface_avg ON w.surface = surface_avg.surface
+    WHERE w.player_role = 'winner'
+      AND l.player_role = 'loser'
+    ORDER BY m.tourney_date
+"""
+
+_BUILD_V4_XGB_MATRIX_SQL = """
+    SELECT
+        m.tourney_date,
+        -- Same 14 as logistic
+        COALESCE(w.elo_overall, 1500.0) - COALESCE(l.elo_overall, 1500.0) AS elo_diff,
+        COALESCE(w.elo_hard, 1500.0) - COALESCE(l.elo_hard, 1500.0) AS elo_hard_diff,
+        COALESCE(w.elo_clay, 1500.0) - COALESCE(l.elo_clay, 1500.0) AS elo_clay_diff,
+        COALESCE(w.elo_grass, 1500.0) - COALESCE(l.elo_grass, 1500.0) AS elo_grass_diff,
+        COALESCE(w.ranking, 0) - COALESCE(l.ranking, 0) AS ranking_diff,
+        COALESCE(w.ranking_delta, 0) - COALESCE(l.ranking_delta, 0) AS ranking_delta_diff,
+        COALESCE(w.h2h_wins, 0) - COALESCE(w.h2h_losses, 0) AS h2h_balance,
+        COALESCE(w.form_win_rate_10, 0.5) - COALESCE(l.form_win_rate_10, 0.5) AS form_diff_10,
+        COALESCE(w.form_win_rate_20, 0.5) - COALESCE(l.form_win_rate_20, 0.5) AS form_diff_20,
+        COALESCE(w.days_since_last, 0) - COALESCE(l.days_since_last, 0) AS fatigue_diff,
+        CASE WHEN COALESCE(w.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_w,
+        CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l,
+        -- Additional XGBoost features
+        COALESCE(w.elo_overall_rd, 350.0) - COALESCE(l.elo_overall_rd, 350.0) AS elo_overall_rd_diff,
+        COALESCE(w.elo_hard_rd, 350.0) - COALESCE(l.elo_hard_rd, 350.0) AS elo_hard_rd_diff,
+        COALESCE(w.elo_clay_rd, 350.0) - COALESCE(l.elo_clay_rd, 350.0) AS elo_clay_rd_diff,
+        COALESCE(w.elo_grass_rd, 350.0) - COALESCE(l.elo_grass_rd, 350.0) AS elo_grass_rd_diff,
+        COALESCE(w.h2h_surface_wins, 0) - COALESCE(w.h2h_surface_losses, 0) AS h2h_surface_balance,
+        COALESCE(w.avg_ace_rate, 0.0) - COALESCE(l.avg_ace_rate, 0.0) AS ace_rate_diff,
+        COALESCE(w.avg_df_rate, 0.0) - COALESCE(l.avg_df_rate, 0.0) AS df_rate_diff,
+        COALESCE(w.avg_first_pct, 0.0) - COALESCE(l.avg_first_pct, 0.0) AS first_pct_diff,
+        COALESCE(w.avg_first_won_pct, 0.0) - COALESCE(l.avg_first_won_pct, 0.0) AS first_won_pct_diff,
+        COALESCE(w.sets_last_7_days, 0) - COALESCE(l.sets_last_7_days, 0) AS sets_7d_diff,
+        COALESCE(w.sentiment_score, 0.0) - COALESCE(l.sentiment_score, 0.0) AS sentiment_diff,
+        -- One-hot surface (use winner's surface column, same for both)
+        CASE WHEN w.surface = 'Clay' THEN 1 ELSE 0 END AS surface_clay,
+        CASE WHEN w.surface = 'Grass' THEN 1 ELSE 0 END AS surface_grass,
+        CASE WHEN w.surface = 'Hard' THEN 1 ELSE 0 END AS surface_hard,
+        -- One-hot tourney_level
+        CASE WHEN w.tourney_level = 'G' THEN 1 ELSE 0 END AS level_G,
+        CASE WHEN w.tourney_level = 'M' THEN 1 ELSE 0 END AS level_M,
+        -- Match context
+        COALESCE(w.round_ordinal, 3) AS round_ordinal,
+        COALESCE(w.best_of, 3) AS best_of,
+        -- Pinnacle devigged probability differential (0 when no odds)
+        COALESCE(w.pinnacle_prob_winner, 0.5) - COALESCE(l.pinnacle_prob_winner, 0.5) AS pinnacle_prob_diff,
+        CASE WHEN w.pinnacle_prob_winner IS NULL THEN 1 ELSE 0 END AS has_no_pinnacle,
+        -- Court speed index (non-differential venue property)
+        COALESCE(csi.csi_value, surface_avg.avg_csi, 0.5) AS court_speed_index,
+        CASE WHEN csi.csi_value IS NULL THEN 1 ELSE 0 END AS has_no_csi,
+        -- Speed affinity differential
+        COALESCE(w.speed_affinity, 0.0) - COALESCE(l.speed_affinity, 0.0) AS speed_affinity_diff
+    FROM match_features w
+    JOIN match_features l
+      ON  w.tourney_id = l.tourney_id
+      AND w.match_num  = l.match_num
+      AND w.tour       = l.tour
+    JOIN matches m
+      ON  w.tourney_id = m.tourney_id
+      AND w.match_num  = m.match_num
+      AND w.tour       = m.tour
+    LEFT JOIN court_speed_index csi
+      ON  w.tourney_id = csi.tourney_id AND csi.tour = w.tour
+    LEFT JOIN (
+        SELECT surface, AVG(csi_value) AS avg_csi
+        FROM court_speed_index
+        GROUP BY surface
+    ) surface_avg ON w.surface = surface_avg.surface
+    WHERE w.player_role = 'winner'
+      AND l.player_role = 'loser'
+    ORDER BY m.tourney_date
+"""
+
+
+def build_v4_training_matrix(
+    conn: sqlite3.Connection,
+    train_end: Optional[str] = None,
+) -> tuple[np.ndarray, np.ndarray, list]:
+    """
+    Assemble the pairwise differential training matrix for logistic_v4.
+
+    Like build_training_matrix but uses LOGISTIC_V4_FEATURES (19 columns) which
+    includes the 3 CSI features (court_speed_index, has_no_csi, speed_affinity_diff).
+
+    Parameters
+    ----------
+    conn:
+        Open SQLite connection with match_features, matches, and court_speed_index populated.
+    train_end:
+        Optional ISO date string. If provided, only rows with
+        tourney_date < train_end are included (for walk-forward folds).
+        If None, all rows are included (for full training).
+
+    Returns
+    -------
+    X: ndarray of shape (n_matches, len(LOGISTIC_V4_FEATURES))
+    y: ndarray of shape (n_matches,) — all ones
+    match_dates: list of ISO date strings
+    """
+    if train_end is not None:
+        sql = _BUILD_V4_MATRIX_SQL.replace(
+            "ORDER BY m.tourney_date",
+            "AND m.tourney_date < :train_end\n          ORDER BY m.tourney_date"
+        )
+        cursor = conn.execute(sql, {"train_end": train_end})
+    else:
+        cursor = conn.execute(_BUILD_V4_MATRIX_SQL)
+    rows = cursor.fetchall()
+    if not rows:
+        empty_X = np.empty((0, len(LOGISTIC_V4_FEATURES)), dtype=np.float64)
+        return empty_X, np.array([], dtype=np.float64), []
+    match_dates: list[str] = [row[0] for row in rows]
+    X = np.array(
+        [[row[i + 1] for i in range(len(LOGISTIC_V4_FEATURES))] for row in rows],
+        dtype=np.float64,
+    )
+    y = np.ones(len(rows), dtype=np.float64)
+    return X, y, match_dates
+
+
+def build_v4_xgb_training_matrix(
+    conn: sqlite3.Connection,
+    train_end: Optional[str] = None,
+) -> tuple[np.ndarray, np.ndarray, list]:
+    """
+    Assemble pairwise differential training matrix for xgboost_v3.
+
+    Like build_xgb_training_matrix but uses XGB_V3_FEATURES (35 columns) which
+    includes the 3 CSI features (court_speed_index, has_no_csi, speed_affinity_diff).
+
+    Parameters
+    ----------
+    conn:
+        Open SQLite connection with match_features, matches, and court_speed_index populated.
+    train_end:
+        Optional ISO date string. If provided, only rows with
+        tourney_date < train_end are included (for walk-forward folds).
+        If None, all rows are included (for full training).
+
+    Returns
+    -------
+    X: ndarray of shape (n_matches, len(XGB_V3_FEATURES))
+    y: ndarray of shape (n_matches,) — all ones
+    match_dates: list of ISO date strings
+    """
+    if train_end is not None:
+        sql = _BUILD_V4_XGB_MATRIX_SQL.replace(
+            "ORDER BY m.tourney_date",
+            "AND m.tourney_date < :train_end\n          ORDER BY m.tourney_date"
+        )
+        cursor = conn.execute(sql, {"train_end": train_end})
+    else:
+        cursor = conn.execute(_BUILD_V4_XGB_MATRIX_SQL)
+    rows = cursor.fetchall()
+    if not rows:
+        empty_X = np.empty((0, len(XGB_V3_FEATURES)), dtype=np.float64)
+        return empty_X, np.array([], dtype=np.float64), []
+    match_dates = [row[0] for row in rows]
+    X = np.array(
+        [[row[i + 1] for i in range(len(XGB_V3_FEATURES))] for row in rows],
+        dtype=np.float64,
+    )
+    y = np.ones(len(rows), dtype=np.float64)
+    return X, y, match_dates
