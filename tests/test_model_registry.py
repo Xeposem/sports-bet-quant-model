@@ -141,3 +141,81 @@ class TestPinnacleRegistryVersions:
             assert "predict" in entry, f"{v} missing 'predict' key"
             assert callable(entry["train"]), f"{v} train not callable"
             assert callable(entry["predict"]), f"{v} predict not callable"
+
+
+class TestEnsembleV2Pinnacle:
+    def test_ensemble_v2_pinnacle_in_registry(self):
+        """ensemble_v2_pinnacle must exist in MODEL_REGISTRY with train and predict keys."""
+        from src.model import MODEL_REGISTRY
+        assert "ensemble_v2_pinnacle" in MODEL_REGISTRY
+        entry = MODEL_REGISTRY["ensemble_v2_pinnacle"]
+        assert "train" in entry
+        assert "predict" in entry
+        assert callable(entry["train"])
+        assert callable(entry["predict"])
+
+    def test_pinnacle_component_models(self):
+        """PINNACLE_COMPONENT_MODELS must equal the two pinnacle model keys."""
+        from src.model.ensemble import PINNACLE_COMPONENT_MODELS
+        assert PINNACLE_COMPONENT_MODELS == ["logistic_v3_pinnacle", "xgboost_v2_pinnacle"]
+
+    def test_ensemble_v1_unchanged(self):
+        """Original COMPONENT_MODELS must remain unchanged after adding pinnacle ensemble."""
+        from src.model.ensemble import COMPONENT_MODELS
+        assert COMPONENT_MODELS == ["logistic_v1", "xgboost_v1", "bayesian_v1"]
+
+    def test_ensemble_v2_train_uses_pinnacle_components(self):
+        """train_pinnacle calls each component's train function and compute_weights."""
+        from unittest.mock import MagicMock, patch
+        import sqlite3
+        from src.model.ensemble import train_pinnacle
+
+        fake_conn = MagicMock(spec=sqlite3.Connection)
+
+        # Fake return values from component train functions
+        fake_log_model = MagicMock()
+        fake_xgb_model = MagicMock()
+        fake_log_metrics = {"val_brier_score": 0.20}
+        fake_xgb_metrics = {"val_brier_score": 0.18}
+
+        fake_registry = {
+            "logistic_v3_pinnacle": {
+                "train": MagicMock(return_value=(fake_log_model, fake_log_metrics)),
+                "predict": MagicMock(),
+            },
+            "xgboost_v2_pinnacle": {
+                "train": MagicMock(return_value=(fake_xgb_model, fake_xgb_metrics)),
+                "predict": MagicMock(),
+            },
+        }
+
+        # Stub build_training_matrix / compute_time_weights / temporal_split
+        import numpy as np
+        fake_X = np.zeros((10, 2))
+        fake_y = np.ones(10)
+        fake_dates = ["2020-01-01"] * 10
+        fake_split = {
+            "X_train": fake_X, "y_train": fake_y,
+            "X_val": fake_X, "y_val": fake_y,
+            "w_train": np.ones(10),
+            "train_dates": fake_dates, "val_dates": fake_dates,
+        }
+
+        with patch("src.model.ensemble.MODEL_REGISTRY", fake_registry), \
+             patch("src.model.ensemble.build_training_matrix",
+                   return_value=(fake_X, fake_y, fake_dates)), \
+             patch("src.model.ensemble.compute_time_weights",
+                   return_value=np.ones(10)), \
+             patch("src.model.ensemble.temporal_split",
+                   return_value=fake_split):
+            state, metrics = train_pinnacle(fake_conn)
+
+        # Both components were trained
+        fake_registry["logistic_v3_pinnacle"]["train"].assert_called_once()
+        fake_registry["xgboost_v2_pinnacle"]["train"].assert_called_once()
+
+        # Returned state contains both models and their weights
+        assert "logistic_v3_pinnacle" in state["models"]
+        assert "xgboost_v2_pinnacle" in state["models"]
+        assert "logistic_v3_pinnacle" in state["weights"]
+        assert "xgboost_v2_pinnacle" in state["weights"]
