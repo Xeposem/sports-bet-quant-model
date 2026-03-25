@@ -156,6 +156,14 @@ function BetRow({ bet, onResolve, isResolving }: BetRowProps) {
 export function PaperTradingTab() {
   const [bankrollInput, setBankrollInput] = useState<number>(1000);
   const [page, setPage] = useState(0);
+  const [clvThreshold, setClvThreshold] = useState<number>(() => {
+    const stored = localStorage.getItem('clv_threshold_paper');
+    return stored ? parseFloat(stored) : 0.03;
+  });
+  const handleClvChange = (val: number) => {
+    setClvThreshold(val);
+    localStorage.setItem('clv_threshold_paper', String(val));
+  };
   const PAGE_SIZE = 20;
 
   const sessionQuery = usePaperSession();
@@ -217,6 +225,20 @@ export function PaperTradingTab() {
           heading="No active session"
           body="Start a paper trading session to track bets and P&L. Set your starting bankroll and click Start Session."
         />
+        {/* CLV Threshold Slider */}
+        <div className="mt-4 flex items-center gap-4">
+          <span className="text-sm text-slate-400 whitespace-nowrap">CLV: {clvThreshold.toFixed(2)}</span>
+          <input
+            type="range"
+            min={0}
+            max={0.15}
+            step={0.01}
+            value={clvThreshold}
+            onChange={(e) => handleClvChange(parseFloat(e.target.value))}
+            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+            aria-label="CLV threshold"
+          />
+        </div>
         <div className="mt-4 flex items-center gap-4">
           <label className="text-sm text-slate-400">Starting Bankroll ($)</label>
           <input
@@ -250,6 +272,21 @@ export function PaperTradingTab() {
         >
           Reset Session
         </button>
+      </div>
+
+      {/* CLV Threshold Slider */}
+      <div className="flex items-center gap-4">
+        <span className="text-sm text-slate-400 whitespace-nowrap">CLV: {clvThreshold.toFixed(2)}</span>
+        <input
+          type="range"
+          min={0}
+          max={0.15}
+          step={0.01}
+          value={clvThreshold}
+          onChange={(e) => handleClvChange(parseFloat(e.target.value))}
+          className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+          aria-label="CLV threshold"
+        />
       </div>
 
       {/* KPI Row */}

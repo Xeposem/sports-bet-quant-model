@@ -310,3 +310,14 @@ export interface PaperEquityResponse {
   win_rate: number | null;
   curve: PaperEquityPoint[];
 }
+
+// CLV sweep schemas (Phase 13)
+export interface SweepResultEntry {
+  clv_threshold: number;
+  bets_placed: number;
+  roi: number;
+  sharpe: number;
+  max_drawdown: number;
+  total_pnl: number;
+  final_bankroll: number;
+}

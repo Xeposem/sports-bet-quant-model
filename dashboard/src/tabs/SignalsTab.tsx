@@ -22,6 +22,14 @@ export function SignalsTab() {
     return stored ? parseFloat(stored) : 0;
   });
   const [dimMode, setDimMode] = useState<boolean>(true);
+  const [clvThreshold, setClvThreshold] = useState<number>(() => {
+    const stored = localStorage.getItem('clv_threshold_signals');
+    return stored ? parseFloat(stored) : 0.03;
+  });
+  const handleClvChange = (val: number) => {
+    setClvThreshold(val);
+    localStorage.setItem('clv_threshold_signals', String(val));
+  };
 
   const signals = useSignals({
     surface: filterParams.surface || undefined,
@@ -143,6 +151,20 @@ export function SignalsTab() {
         >
           {dimMode ? 'Dim' : 'Hide'}
         </button>
+      </div>
+      {/* CLV Threshold Slider */}
+      <div className="px-6 pt-2 pb-2 flex items-center gap-4">
+        <span className="text-sm text-slate-400 whitespace-nowrap">CLV: {clvThreshold.toFixed(2)}</span>
+        <input
+          type="range"
+          min={0}
+          max={0.15}
+          step={0.01}
+          value={clvThreshold}
+          onChange={(e) => handleClvChange(parseFloat(e.target.value))}
+          className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+          aria-label="CLV threshold"
+        />
       </div>
       <div className="p-6">
         {signals.isLoading ? (
