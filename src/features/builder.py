@@ -25,6 +25,7 @@ from src.features.form import compute_rolling_form
 from src.features.ranking import get_ranking_features
 from src.features.fatigue import get_fatigue_features
 from src.features.tourney import encode_tourney_level
+from src.features.court_speed import _get_csi, compute_player_speed_affinity
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +199,12 @@ def build_feature_row(
     # --- Pinnacle devigged probability ---
     pinnacle = _get_pinnacle_prob(conn, tourney_id, match_num, tour)
 
+    # --- Court speed index (per D-01, D-08) ---
+    csi = _get_csi(conn, tourney_id, surface, tour)
+
+    # --- Player speed affinity (per D-04) ---
+    speed_affinity = compute_player_speed_affinity(conn, player_id, match_date)
+
     # --- Assemble feature row ---
     row: dict = {
         # Identity
@@ -242,6 +249,11 @@ def build_feature_row(
         "pinnacle_prob_winner": pinnacle["pinnacle_prob_winner"],
         "pinnacle_prob_loser": pinnacle["pinnacle_prob_loser"],
         "has_no_pinnacle": pinnacle["has_no_pinnacle"],
+        # Court speed index
+        "court_speed_index": csi["court_speed_index"],
+        "has_no_csi": csi["has_no_csi"],
+        # Player speed affinity
+        "speed_affinity": speed_affinity,
     }
     return row
 
@@ -267,6 +279,10 @@ def build_all_features(conn: sqlite3.Connection) -> dict:
     dict
         {"matches_processed": int, "feature_rows_written": int}
     """
+    from src.features.court_speed import compute_court_speed_index, migrate_csi_columns
+    migrate_csi_columns(conn)
+    compute_court_speed_index(conn)
+
     matches_sql = """
         SELECT
             m.tourney_id,
@@ -349,7 +365,8 @@ def _insert_feature_row(conn: sqlite3.Connection, row: dict) -> None:
             days_since_last, sets_last_7_days,
             tourney_level, surface,
             sentiment_score,
-            pinnacle_prob_winner, pinnacle_prob_loser, has_no_pinnacle
+            pinnacle_prob_winner, pinnacle_prob_loser, has_no_pinnacle,
+            court_speed_index, has_no_csi, speed_affinity
         ) VALUES (
             :tourney_id, :match_num, :tour, :player_role,
             :elo_hard, :elo_hard_rd,
@@ -364,7 +381,8 @@ def _insert_feature_row(conn: sqlite3.Connection, row: dict) -> None:
             :days_since_last, :sets_last_7_days,
             :tourney_level, :surface,
             :sentiment_score,
-            :pinnacle_prob_winner, :pinnacle_prob_loser, :has_no_pinnacle
+            :pinnacle_prob_winner, :pinnacle_prob_loser, :has_no_pinnacle,
+            :court_speed_index, :has_no_csi, :speed_affinity
         )
         """,
         row,

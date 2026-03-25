@@ -35,6 +35,8 @@ EXPECTED_FEATURE_KEYS = {
     "tourney_level", "surface",
     "sentiment_score",
     "pinnacle_prob_winner", "pinnacle_prob_loser", "has_no_pinnacle",
+    # Court Speed Index (Phase 14)
+    "court_speed_index", "has_no_csi", "speed_affinity",
 }
 
 
