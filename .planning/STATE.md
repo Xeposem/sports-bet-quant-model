@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 12-01-PLAN.md
-last_updated: "2026-03-25T01:39:28.202Z"
+stopped_at: Completed 12-02-PLAN.md
+last_updated: "2026-03-25T01:51:26.664Z"
 progress:
   total_phases: 15
   completed_phases: 11
   total_plans: 39
-  completed_plans: 36
+  completed_plans: 38
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 ## Current Position
 
 Phase: 12 (add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -84,6 +84,7 @@ Plan: 2 of 3
 | Phase 11-update-data-ingestion-to-use-stats-tennismylife-org-for-most-recent-atp-match-data P01 | 25 | 2 tasks | 4 files |
 | Phase 11-update-data-ingestion-to-use-stats-tennismylife-org-for-most-recent-atp-match-data P02 | 4 | 2 tasks | 4 files |
 | Phase 12 P01 | 8 | 1 tasks | 3 files |
+| Phase 12-add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual P02 | 15 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -190,6 +191,8 @@ Recent decisions affecting current work:
 - [Phase 11-update-data-ingestion-to-use-stats-tennismylife-org-for-most-recent-atp-match-data]: auto mode catches requests.exceptions.HTTPError (not generic Exception) for precise Sackmann 404 detection without masking TML errors
 - [Phase 12]: _get_pinnacle_prob uses function-level import of power_method_devig to match existing lazy import pattern
 - [Phase 12]: Graceful fallback (None, None, 1) for both missing odds and invalid odds — consistent with has_no_elo pattern
+- [Phase 12-add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual]: XGB_FEATURES expanded to 32 (not 31 as planned) — original list had 30 entries; 30+2=32 is correct count
+- [Phase 12-add-pinnacle-odds-as-a-feature-and-retrain-on-the-residual]: predictor.py _FEATURE_QUERY extended with pinnacle columns — auto-fix to prevent IndexError when model uses 16-col LOGISTIC_FEATURES
 
 ### Roadmap Evolution
 
@@ -213,6 +216,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-25T01:39:28.195Z
-Stopped at: Completed 12-01-PLAN.md
+Last session: 2026-03-25T01:51:26.657Z
+Stopped at: Completed 12-02-PLAN.md
 Resume file: None

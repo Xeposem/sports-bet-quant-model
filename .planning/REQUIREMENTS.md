@@ -104,11 +104,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **PIN-01**: System joins Pinnacle devigged probability onto match_features as pinnacle_prob_winner and pinnacle_prob_loser per match (NULL when no odds available)
 - [x] **PIN-02**: System adds pinnacle_prob_diff (winner - loser devigged Pinnacle prob) and has_no_pinnacle indicator to the match_features schema and training SQL
-- [ ] **PIN-03**: System trains logistic_v3_pinnacle using LOGISTIC_FEATURES extended with pinnacle_prob_diff and has_no_pinnacle
-- [ ] **PIN-04**: System trains xgboost_v2_pinnacle using XGB_FEATURES extended with pinnacle_prob_diff and has_no_pinnacle
-- [ ] **PIN-05**: Walk-forward backtesting supports Pinnacle-augmented model versions; folds before ~2010 impute Pinnacle prob as 0.5 with has_no_pinnacle=1
+- [x] **PIN-03**: System trains logistic_v3_pinnacle using LOGISTIC_FEATURES extended with pinnacle_prob_diff and has_no_pinnacle
+- [x] **PIN-04**: System trains xgboost_v2_pinnacle using XGB_FEATURES extended with pinnacle_prob_diff and has_no_pinnacle
+- [x] **PIN-05**: Walk-forward backtesting supports Pinnacle-augmented model versions; folds before ~2010 impute Pinnacle prob as 0.5 with has_no_pinnacle=1
 - [ ] **PIN-06**: Ensemble v2_pinnacle blends logistic_v3_pinnacle and xgboost_v2_pinnacle weighted by inverse Brier score
-- [ ] **PIN-07**: Model registry exposes logistic_v3_pinnacle, xgboost_v2_pinnacle, and ensemble_v2_pinnacle; existing versions remain intact
+- [x] **PIN-07**: Model registry exposes logistic_v3_pinnacle, xgboost_v2_pinnacle, and ensemble_v2_pinnacle; existing versions remain intact
 
 ## v2 Requirements
 

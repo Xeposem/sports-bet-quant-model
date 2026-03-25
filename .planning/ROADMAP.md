@@ -220,7 +220,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 9. Simulation, Signals & Paper Trading | 4/4 | Complete   | 2026-03-22 |
 | 10. PrizePicks Screenshot CV Tool | 2/2 | Complete    | 2026-03-23 |
 | 11. TML Data Ingestion | 2/2 | Complete    | 2026-03-23 |
-| 12. Pinnacle Odds Feature | 0/3 | Planned    |  |
+| 12. Pinnacle Odds Feature | 2/3 | In Progress|  |
 
 ### Phase 12: Add Pinnacle odds as a feature and retrain on the residual
 
@@ -233,11 +233,11 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
   3. logistic_v3_pinnacle, xgboost_v2_pinnacle, and ensemble_v2_pinnacle are registered in MODEL_REGISTRY
   4. Walk-forward backtesting dispatches Pinnacle model versions correctly with COALESCE imputation for pre-2010 data
   5. Existing model versions (logistic_v1, xgboost_v1, bayesian_v1, ensemble_v1) remain fully intact
-**Plans:** 0/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
-- [ ] 12-01-PLAN.md -- Schema migration + Pinnacle feature builder (_get_pinnacle_prob, build_feature_row, _insert_feature_row)
-- [ ] 12-02-PLAN.md -- Feature constants/SQL extension, model registry entries, walk-forward dispatch
+- [x] 12-01-PLAN.md -- Schema migration + Pinnacle feature builder (_get_pinnacle_prob, build_feature_row, _insert_feature_row)
+- [x] 12-02-PLAN.md -- Feature constants/SQL extension, model registry entries, walk-forward dispatch
 - [ ] 12-03-PLAN.md -- Ensemble v2 pinnacle (train/predict), registry entry, walk-forward ensemble dispatch
 
 ### Phase 13: Implement EV threshold filtering — only bet when divergence exceeds X percent
