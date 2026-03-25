@@ -34,6 +34,7 @@ EXPECTED_FEATURE_KEYS = {
     "days_since_last", "sets_last_7_days",
     "tourney_level", "surface",
     "sentiment_score",
+    "pinnacle_prob_winner", "pinnacle_prob_loser", "has_no_pinnacle",
 }
 
 

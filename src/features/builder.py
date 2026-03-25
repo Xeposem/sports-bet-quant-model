@@ -80,6 +80,38 @@ def _get_player_elo(
     return result
 
 
+def _get_pinnacle_prob(
+    conn: sqlite3.Connection,
+    tourney_id: str,
+    match_num: int,
+    tour: str = "ATP",
+) -> dict:
+    """Return devigged Pinnacle win probabilities for winner and loser.
+
+    Queries match_odds for bookmaker='pinnacle' and applies power method devigging.
+    Returns a dict with (None, None, 1) when no Pinnacle odds exist or when odds
+    are invalid (ValueError caught internally).
+    """
+    from src.odds.devig import power_method_devig
+
+    row = conn.execute(
+        """
+        SELECT decimal_odds_a, decimal_odds_b
+        FROM match_odds
+        WHERE tourney_id = ? AND match_num = ? AND tour = ? AND bookmaker = 'pinnacle'
+        LIMIT 1
+        """,
+        (tourney_id, match_num, tour),
+    ).fetchone()
+    if row is None:
+        return {"pinnacle_prob_winner": None, "pinnacle_prob_loser": None, "has_no_pinnacle": 1}
+    try:
+        p_a, p_b = power_method_devig(float(row[0]), float(row[1]))
+        return {"pinnacle_prob_winner": p_a, "pinnacle_prob_loser": p_b, "has_no_pinnacle": 0}
+    except (ValueError, Exception):
+        return {"pinnacle_prob_winner": None, "pinnacle_prob_loser": None, "has_no_pinnacle": 1}
+
+
 def _get_sentiment(
     conn: sqlite3.Connection,
     player_id: int,
@@ -163,6 +195,9 @@ def build_feature_row(
     # --- Sentiment (graceful — None on any error or missing data) ---
     sentiment_score = _get_sentiment(conn, player_id, match_date)
 
+    # --- Pinnacle devigged probability ---
+    pinnacle = _get_pinnacle_prob(conn, tourney_id, match_num, tour)
+
     # --- Assemble feature row ---
     row: dict = {
         # Identity
@@ -203,6 +238,10 @@ def build_feature_row(
         "surface": surface,
         # Sentiment
         "sentiment_score": sentiment_score,
+        # Pinnacle market probability
+        "pinnacle_prob_winner": pinnacle["pinnacle_prob_winner"],
+        "pinnacle_prob_loser": pinnacle["pinnacle_prob_loser"],
+        "has_no_pinnacle": pinnacle["has_no_pinnacle"],
     }
     return row
 
@@ -309,7 +348,8 @@ def _insert_feature_row(conn: sqlite3.Connection, row: dict) -> None:
             ranking, ranking_delta,
             days_since_last, sets_last_7_days,
             tourney_level, surface,
-            sentiment_score
+            sentiment_score,
+            pinnacle_prob_winner, pinnacle_prob_loser, has_no_pinnacle
         ) VALUES (
             :tourney_id, :match_num, :tour, :player_role,
             :elo_hard, :elo_hard_rd,
@@ -323,7 +363,8 @@ def _insert_feature_row(conn: sqlite3.Connection, row: dict) -> None:
             :ranking, :ranking_delta,
             :days_since_last, :sets_last_7_days,
             :tourney_level, :surface,
-            :sentiment_score
+            :sentiment_score,
+            :pinnacle_prob_winner, :pinnacle_prob_loser, :has_no_pinnacle
         )
         """,
         row,
