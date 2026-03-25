@@ -41,6 +41,9 @@ from src.model.trainer import (
 
 logger = logging.getLogger(__name__)
 
+# CLV sweep thresholds (D-07): candidate values to evaluate
+SWEEP_THRESHOLDS = [0.01, 0.02, 0.03, 0.05, 0.07, 0.10]
+
 
 # ---------------------------------------------------------------------------
 # SQL constants
@@ -109,6 +112,7 @@ _FOLD_TEST_MATCHES_SQL = """
         -- Pinnacle devigged probability differential (must come before odds columns)
         COALESCE(w.pinnacle_prob_winner, 0.5) - COALESCE(l.pinnacle_prob_winner, 0.5) AS pinnacle_prob_diff,
         CASE WHEN w.pinnacle_prob_winner IS NULL THEN 1 ELSE 0 END AS has_no_pinnacle,
+        w.pinnacle_prob_winner AS pinnacle_prob_market,
         o.decimal_odds_a, o.decimal_odds_b
     FROM match_features w
     JOIN match_features l
@@ -175,6 +179,7 @@ _FOLD_XGB_TEST_MATCHES_SQL = """
         -- Pinnacle devigged probability differential (must come before odds columns)
         COALESCE(w.pinnacle_prob_winner, 0.5) - COALESCE(l.pinnacle_prob_winner, 0.5) AS pinnacle_prob_diff,
         CASE WHEN w.pinnacle_prob_winner IS NULL THEN 1 ELSE 0 END AS has_no_pinnacle,
+        w.pinnacle_prob_winner AS pinnacle_prob_market,
         o.decimal_odds_a, o.decimal_odds_b
     FROM match_features w
     JOIN match_features l
@@ -342,16 +347,18 @@ def build_fold_test_matches(
     for row in rows:
         # Columns: 0=tourney_id, 1=match_num, 2=tour, 3=winner_id, 4=loser_id,
         #          5=tourney_date, 6=surface, 7=tourney_level, 8=winner_rank,
-        #          9=loser_rank, 10..10+len(LOGISTIC_FEATURES)-1=feature columns,
-        #          then decimal_odds_a, decimal_odds_b
+        #          9=loser_rank, 10..25=feature columns (16 LOGISTIC_FEATURES),
+        #          26=pinnacle_prob_market,
+        #          27=decimal_odds_a, 28=decimal_odds_b
         feature_start = 10
         feature_vec = np.array(
             [row[feature_start + i] for i in range(len(LOGISTIC_FEATURES))],
             dtype=np.float64,
         )
         odds_offset = feature_start + len(LOGISTIC_FEATURES)
-        decimal_odds_a = row[odds_offset]
-        decimal_odds_b = row[odds_offset + 1]
+        pinnacle_prob_market = row[odds_offset]  # pinnacle_prob_market
+        decimal_odds_a = row[odds_offset + 1]
+        decimal_odds_b = row[odds_offset + 2]
         has_odds = (decimal_odds_a is not None and decimal_odds_b is not None)
 
         matches.append({
@@ -366,6 +373,7 @@ def build_fold_test_matches(
             "winner_rank": row[8],
             "loser_rank": row[9],
             "features": feature_vec,
+            "pinnacle_prob_market": pinnacle_prob_market,
             "decimal_odds_a": decimal_odds_a,
             "decimal_odds_b": decimal_odds_b,
             "has_odds": has_odds,
@@ -412,15 +420,16 @@ def build_fold_xgb_test_matches(
         # Columns: 0=tourney_id, 1=match_num, 2=tour, 3=winner_id, 4=loser_id,
         #          5=tourney_date, 6=surface, 7=tourney_level, 8=winner_rank,
         #          9=loser_rank, 10..10+len(XGB_FEATURES)-1=XGB feature columns,
-        #          then decimal_odds_a, decimal_odds_b
+        #          then pinnacle_prob_market, decimal_odds_a, decimal_odds_b
         feature_start = 10
         feature_vec = np.array(
             [row[feature_start + i] for i in range(len(XGB_FEATURES))],
             dtype=np.float64,
         )
         odds_offset = feature_start + len(XGB_FEATURES)
-        decimal_odds_a = row[odds_offset]
-        decimal_odds_b = row[odds_offset + 1]
+        pinnacle_prob_market = row[odds_offset]  # pinnacle_prob_market
+        decimal_odds_a = row[odds_offset + 1]
+        decimal_odds_b = row[odds_offset + 2]
         has_odds = (decimal_odds_a is not None and decimal_odds_b is not None)
 
         matches.append({
@@ -435,6 +444,7 @@ def build_fold_xgb_test_matches(
             "winner_rank": row[8],
             "loser_rank": row[9],
             "features": feature_vec,
+            "pinnacle_prob_market": pinnacle_prob_market,
             "decimal_odds_a": decimal_odds_a,
             "decimal_odds_b": decimal_odds_b,
             "has_odds": has_odds,
@@ -743,6 +753,7 @@ def run_fold(
     kelly_fraction = config.get("kelly_fraction", 0.25)
     max_fraction = config.get("max_fraction", 0.03)
     min_ev = config.get("min_ev", 0.0)
+    clv_threshold = config.get("clv_threshold", 0.0)
     model_version = config.get("model_version", "logistic_v1")
     fold_year = int(test_start[:4])
 
@@ -858,6 +869,13 @@ def run_fold(
         ev_winner = compute_ev(prob_winner, decimal_odds_a)
         ev_loser = compute_ev(prob_loser, decimal_odds_b)
 
+        # Extract CLV data from match dict (new columns added in Phase 13)
+        pinnacle_prob_market = match.get("pinnacle_prob_market")
+        has_no_pinnacle_flag = 1 if pinnacle_prob_market is None else 0
+        pinnacle_prob_loser_side = (
+            (1.0 - pinnacle_prob_market) if pinnacle_prob_market is not None else None
+        )
+
         # Compute full Kelly (for logging) and fractional Kelly bet
         def _full_kelly(prob: float, decimal_odds: float) -> float:
             b = decimal_odds - 1.0
@@ -871,12 +889,18 @@ def run_fold(
             kelly_fraction=kelly_fraction,
             max_fraction=max_fraction,
             min_ev=min_ev,
+            clv_threshold=clv_threshold,
+            pinnacle_prob=pinnacle_prob_market,
+            has_no_pinnacle=has_no_pinnacle_flag,
         )
         kelly_bet_loser = compute_kelly_bet(
             prob_loser, decimal_odds_b, bankroll,
             kelly_fraction=kelly_fraction,
             max_fraction=max_fraction,
             min_ev=min_ev,
+            clv_threshold=clv_threshold,
+            pinnacle_prob=pinnacle_prob_loser_side,
+            has_no_pinnacle=has_no_pinnacle_flag,
         )
 
         # Process winner-side bet
@@ -989,6 +1013,7 @@ def run_walk_forward(
     kelly_fraction = config.get("kelly_fraction", 0.25)
     max_fraction = config.get("max_fraction", 0.03)
     min_ev = config.get("min_ev", 0.0)
+    clv_threshold = config.get("clv_threshold", 0.0)
     initial_bankroll = config.get("initial_bankroll", 1000.0)
     min_train_matches = config.get("min_train_matches", 500)
     model_version = config.get("model_version", "logistic_v1")
@@ -997,6 +1022,7 @@ def run_walk_forward(
         "kelly_fraction": kelly_fraction,
         "max_fraction": max_fraction,
         "min_ev": min_ev,
+        "clv_threshold": clv_threshold,
         "model_version": model_version,
         "n_trials": config.get("n_trials", 75),
     }
@@ -1108,3 +1134,118 @@ def _store_backtest_results(conn: sqlite3.Connection, rows: list[dict]) -> int:
 
     conn.commit()
     return inserted
+
+
+# ---------------------------------------------------------------------------
+# CLV sweep functions (Phase 13, D-07, D-08)
+# ---------------------------------------------------------------------------
+
+
+def _compute_sweep_metrics(conn: sqlite3.Connection, model_version: str) -> tuple:
+    """Compute Sharpe ratio and max drawdown from backtest_results for the given model.
+
+    Parameters
+    ----------
+    conn:
+        Open SQLite connection.
+    model_version:
+        Model version string to filter results.
+
+    Returns
+    -------
+    Tuple of (sharpe: float, max_drawdown: float).
+    """
+    rows = conn.execute(
+        "SELECT pnl_kelly, bankroll_after FROM backtest_results "
+        "WHERE model_version = ? AND kelly_bet > 0 ORDER BY tourney_date, match_num",
+        (model_version,),
+    ).fetchall()
+    if len(rows) < 2:
+        return 0.0, 0.0
+
+    pnls = [r[0] for r in rows]
+    bankrolls = [r[1] for r in rows]
+
+    # Sharpe = mean(pnl) / std(pnl): simple per-bet Sharpe ratio
+    mean_pnl = sum(pnls) / len(pnls)
+    std_pnl = (sum((p - mean_pnl) ** 2 for p in pnls) / len(pnls)) ** 0.5
+    sharpe = mean_pnl / std_pnl if std_pnl > 0 else 0.0
+
+    # Max drawdown from equity curve
+    peak = bankrolls[0]
+    max_dd = 0.0
+    for b in bankrolls:
+        if b > peak:
+            peak = b
+        dd = (peak - b) / peak if peak > 0 else 0.0
+        if dd > max_dd:
+            max_dd = dd
+
+    return sharpe, max_dd
+
+
+def run_clv_sweep(
+    conn: sqlite3.Connection,
+    base_config: Optional[dict] = None,
+    thresholds: Optional[list] = None,
+) -> list:
+    """
+    Run walk-forward backtest at each CLV threshold value.
+
+    Returns list of summary dicts, one per threshold.
+    Each dict includes: clv_threshold, bets_placed, roi, sharpe, max_drawdown,
+    total_pnl, final_bankroll.
+
+    NOTE on DB side-effects: Each iteration calls run_walk_forward which
+    writes to backtest_results. The last iteration's results remain in the
+    DB. After sweep completes, the caller (CLI main() or API router) runs
+    a final regular backtest at the user's configured clv_threshold, which
+    overwrites backtest_results with the chosen threshold's data, leaving
+    the DB in a consistent state.
+
+    Parameters
+    ----------
+    conn:
+        Open SQLite connection.
+    base_config:
+        Base configuration dict. Each sweep iteration adds/overrides clv_threshold.
+    thresholds:
+        List of CLV threshold values to sweep. Defaults to SWEEP_THRESHOLDS.
+
+    Returns
+    -------
+    List of dicts, one per threshold, each with keys:
+        clv_threshold, bets_placed, roi, sharpe, max_drawdown, total_pnl, final_bankroll.
+    """
+    if thresholds is None:
+        thresholds = SWEEP_THRESHOLDS
+    if base_config is None:
+        base_config = {}
+
+    results = []
+    for thresh in thresholds:
+        cfg = {**base_config, "clv_threshold": thresh}
+        summary = run_walk_forward(conn, cfg)
+
+        # Compute ROI: total_pnl / total_stake
+        initial_bankroll = cfg.get("initial_bankroll", 1000.0)
+        max_fraction = cfg.get("max_fraction", 0.03)
+        bets_placed = summary.get("bets_placed", 0)
+        total_stake = bets_placed * initial_bankroll * max_fraction if bets_placed > 0 else 1.0
+        roi = summary.get("total_pnl_kelly", 0.0) / total_stake if total_stake > 0 else 0.0
+
+        # Compute Sharpe and max_drawdown from backtest_results
+        model_version = cfg.get("model_version", "logistic_v1")
+        sharpe, max_dd = _compute_sweep_metrics(conn, model_version)
+
+        results.append({
+            "clv_threshold": thresh,
+            "bets_placed": bets_placed,
+            "roi": roi,
+            "sharpe": sharpe,
+            "max_drawdown": max_dd,
+            "total_pnl": summary.get("total_pnl_kelly", 0.0),
+            "final_bankroll": summary.get("final_bankroll", initial_bankroll),
+        })
+
+    return results

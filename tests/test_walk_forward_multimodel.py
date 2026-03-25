@@ -217,3 +217,53 @@ class TestPredictWithModel:
         call_args = mock_model.predict_proba.call_args[0][0]
         assert call_args.shape == (1, 28)
         assert np.all(call_args == 1.0)
+
+
+# ---------------------------------------------------------------------------
+# Phase 13: CLV threshold threading tests
+# ---------------------------------------------------------------------------
+
+
+class TestCLVThreadingInWalkForward:
+    def test_clv_threshold_in_fold_config(self):
+        """run_walk_forward passes clv_threshold from config into run_fold's config dict."""
+        from src.backtest.walk_forward import run_walk_forward
+        import sqlite3
+
+        mock_conn = MagicMock(spec=sqlite3.Connection)
+
+        with patch("src.backtest.walk_forward.generate_folds") as mock_gen_folds, \
+             patch("src.backtest.walk_forward.run_fold") as mock_run_fold, \
+             patch("src.backtest.walk_forward._store_backtest_results"):
+            mock_gen_folds.return_value = [("2022-01-01", "2022-01-01", "2023-01-01")]
+            mock_run_fold.return_value = ([], 1000.0)
+
+            run_walk_forward(mock_conn, {"clv_threshold": 0.07})
+
+            assert mock_run_fold.called
+            call_args = mock_run_fold.call_args[0]
+            fold_config_arg = call_args[5]  # 6th positional arg is config
+            assert fold_config_arg.get("clv_threshold") == 0.07, (
+                f"Expected 0.07, got {fold_config_arg.get('clv_threshold')}"
+            )
+
+    def test_clv_threshold_default_zero_in_fold_config(self):
+        """run_walk_forward defaults clv_threshold to 0.0 if not in config (backward compat)."""
+        from src.backtest.walk_forward import run_walk_forward
+        import sqlite3
+
+        mock_conn = MagicMock(spec=sqlite3.Connection)
+
+        with patch("src.backtest.walk_forward.generate_folds") as mock_gen_folds, \
+             patch("src.backtest.walk_forward.run_fold") as mock_run_fold, \
+             patch("src.backtest.walk_forward._store_backtest_results"):
+            mock_gen_folds.return_value = [("2022-01-01", "2022-01-01", "2023-01-01")]
+            mock_run_fold.return_value = ([], 1000.0)
+
+            run_walk_forward(mock_conn, {})  # no clv_threshold → should default to 0.0
+
+            assert mock_run_fold.called
+            fold_config_arg = mock_run_fold.call_args[0][5]  # 6th positional arg is config
+            assert fold_config_arg.get("clv_threshold") == 0.0, (
+                f"Expected default 0.0, got {fold_config_arg.get('clv_threshold')}"
+            )

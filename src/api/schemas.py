@@ -343,6 +343,28 @@ class BacktestRunRequest(BaseModel):
     ev_threshold: float = 0.0
     initial_bankroll: float = 1000.0
     model_version: str = "logistic_v1"
+    clv_threshold: float = 0.03  # D-04: default CLV threshold for external entry points
+    sweep: bool = False
+
+
+class SweepResultEntry(BaseModel):
+    """Single CLV threshold sweep result entry."""
+    model_config = ConfigDict(from_attributes=True)
+
+    clv_threshold: float
+    bets_placed: int
+    roi: float
+    sharpe: float
+    max_drawdown: float
+    total_pnl: float
+    final_bankroll: float
+
+
+class SweepResponse(BaseModel):
+    """Response for CLV sweep endpoint."""
+    model_config = ConfigDict(from_attributes=True)
+
+    results: List[SweepResultEntry]
 
 
 # ---------------------------------------------------------------------------

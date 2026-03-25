@@ -10,6 +10,8 @@ Key exports:
 
 from __future__ import annotations
 
+from typing import Optional
+
 
 def compute_kelly_bet(
     prob: float,
@@ -18,16 +20,21 @@ def compute_kelly_bet(
     kelly_fraction: float = 0.25,
     max_fraction: float = 0.03,
     min_ev: float = 0.0,
+    clv_threshold: float = 0.0,
+    pinnacle_prob: Optional[float] = None,
+    has_no_pinnacle: int = 1,
 ) -> float:
     """
     Compute fractional Kelly bet size with cap enforcement.
 
     Steps:
-    1. Compute EV = (prob * decimal_odds) - 1. If EV < min_ev, return 0.
-    2. Compute full Kelly = (b*p - q) / b where b = decimal_odds - 1.
-    3. If full_kelly <= 0, return 0 (negative Kelly = no edge).
-    4. Apply fraction: fractional = full_kelly * kelly_fraction.
-    5. Cap: min(fractional * bankroll, max_fraction * bankroll).
+    1. CLV gate: if Pinnacle data available and threshold > 0, require
+       model_prob - pinnacle_prob > clv_threshold (D-01, D-02, D-03).
+    2. Compute EV = (prob * decimal_odds) - 1. If EV < min_ev, return 0.
+    3. Compute full Kelly = (b*p - q) / b where b = decimal_odds - 1.
+    4. If full_kelly <= 0, return 0 (negative Kelly = no edge).
+    5. Apply fraction: fractional = full_kelly * kelly_fraction.
+    6. Cap: min(fractional * bankroll, max_fraction * bankroll).
 
     Parameters
     ----------
@@ -43,6 +50,16 @@ def compute_kelly_bet(
         Maximum fraction of bankroll to risk per bet (default 0.03 = 3%).
     min_ev:
         Minimum EV threshold. Bets with EV < min_ev are skipped (default 0.0).
+    clv_threshold:
+        Minimum CLV (model_prob - pinnacle_prob) required to place bet (default 0.0
+        = no CLV filtering). Low-level default is 0.0 for backward compatibility;
+        CLI and API entry points default to 0.03 per D-04.
+    pinnacle_prob:
+        Pinnacle devigged market probability for this outcome. Required when
+        has_no_pinnacle=0 and clv_threshold > 0.
+    has_no_pinnacle:
+        1 if no Pinnacle data for this match (pre-Pinnacle era), 0 if available.
+        When 1, CLV gate is bypassed entirely (D-03).
 
     Returns
     -------
@@ -52,6 +69,12 @@ def compute_kelly_bet(
     b = decimal_odds - 1.0  # net odds (profit per unit staked)
     if bankroll <= 0.0 or b <= 0.0:
         return 0.0
+
+    # CLV gate: only when Pinnacle data available and threshold > 0 (D-01, D-02, D-03)
+    if has_no_pinnacle == 0 and clv_threshold > 0.0 and pinnacle_prob is not None:
+        clv = prob - pinnacle_prob
+        if clv <= clv_threshold:
+            return 0.0
 
     # Step 1: EV check
     ev = float(prob * decimal_odds) - 1.0
