@@ -426,6 +426,20 @@ CREATE TABLE IF NOT EXISTS paper_bets (
 CREATE INDEX IF NOT EXISTS idx_paper_bets_session ON paper_bets(session_id, placed_at);
 
 -- ---------------------------------------------------------------------------
+-- Court Speed Index: per-tournament court speed computed from match_stats
+-- Populated by src/features/court_speed.py compute_court_speed_index
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS court_speed_index (
+    tourney_id   TEXT NOT NULL,
+    tour         TEXT NOT NULL DEFAULT 'ATP',
+    surface      TEXT,
+    csi_value    REAL NOT NULL,
+    n_matches    INTEGER NOT NULL,
+    computed_at  TEXT NOT NULL,
+    PRIMARY KEY (tourney_id, tour)
+);
+
+-- ---------------------------------------------------------------------------
 -- Simulation Results: last Monte Carlo simulation (overwritten on each run)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS simulation_results (

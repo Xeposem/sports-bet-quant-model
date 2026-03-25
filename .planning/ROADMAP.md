@@ -205,7 +205,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11 -> 12 -> 13
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11 -> 12 -> 13 -> 14
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -221,7 +221,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 10. PrizePicks Screenshot CV Tool | 2/2 | Complete    | 2026-03-23 |
 | 11. TML Data Ingestion | 2/2 | Complete    | 2026-03-23 |
 | 12. Pinnacle Odds Feature | 3/3 | Complete    | 2026-03-25 |
-| 13. EV Threshold Filtering | 2/2 | Complete   | 2026-03-25 |
+| 13. EV Threshold Filtering | 2/2 | Complete    | 2026-03-25 |
+| 14. Court Speed Index | 0/3 | Planned    |  |
 
 ### Phase 12: Add Pinnacle odds as a feature and retrain on the residual
 
@@ -261,13 +262,24 @@ Plans:
 
 ### Phase 14: Add court speed index per tournament
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Per-tournament Court Speed Index (CSI) computed from match statistics, integrated as model features (raw CSI + player court speed affinity differential), with new model versions (logistic_v4, xgboost_v3, ensemble_v3), backtest speed tier breakdown, and signal card CSI badges
 **Depends on:** Phase 13
-**Plans:** 0 plans
+**Requirements**: CSI-01, CSI-02, CSI-03, CSI-04, CSI-05, CSI-06, CSI-07, CSI-08, CSI-09, CSI-10
+**Success Criteria** (what must be TRUE):
+  1. court_speed_index table stores per-tournament CSI computed from match_stats ace_rate and first_serve_won_pct with 3-year rolling window
+  2. Tournaments with fewer than 10 matches fall back to surface average CSI with has_no_csi=1
+  3. match_features has court_speed_index, has_no_csi, and speed_affinity columns populated by build_feature_row
+  4. LOGISTIC_V4_FEATURES (19 entries) and XGB_V3_FEATURES (35 entries) include CSI features; original feature lists unchanged
+  5. logistic_v4, xgboost_v3, and ensemble_v3 are registered in MODEL_REGISTRY
+  6. Walk-forward backtesting includes CSI columns for v4/v3 model versions; older versions unaffected
+  7. Backtest tab shows ROI breakdown by court speed tier (Fast/Medium/Slow terciles)
+  8. Signal cards display CSI badge with tier label
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 14 to break down)
+- [ ] 14-01-PLAN.md -- CSI computation module, schema migration, builder integration, tests
+- [ ] 14-02-PLAN.md -- Feature constants (LOGISTIC_V4, XGB_V3), model registry (v4/v3), walk-forward SQL extension
+- [ ] 14-03-PLAN.md -- API speed tier breakdown, signal CSI enrichment, dashboard chart and badge
 
 ### Phase 15: Explore prop markets — NegBin models may have more edge on aces and games than the moneyline model
 

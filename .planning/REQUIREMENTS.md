@@ -110,6 +110,19 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **PIN-06**: Ensemble v2_pinnacle blends logistic_v3_pinnacle and xgboost_v2_pinnacle weighted by inverse Brier score
 - [x] **PIN-07**: Model registry exposes logistic_v3_pinnacle, xgboost_v2_pinnacle, and ensemble_v2_pinnacle; existing versions remain intact
 
+### Court Speed Index
+
+- [ ] **CSI-01**: System computes per-tournament CSI from match_stats ace_rate and first_serve_won_pct with a 3-year rolling window
+- [ ] **CSI-02**: System applies minimum 10-match threshold; tournaments below threshold fall back to surface average CSI with has_no_csi=1 indicator
+- [ ] **CSI-03**: System stores court_speed_index in a new table keyed by (tourney_id, tour)
+- [ ] **CSI-04**: System adds court_speed_index, has_no_csi, and speed_affinity columns to match_features via build_feature_row
+- [ ] **CSI-05**: System extends LOGISTIC_V4_FEATURES (19 entries) and XGB_V3_FEATURES (35 entries) with CSI features
+- [ ] **CSI-06**: System registers logistic_v4, xgboost_v3, and ensemble_v3 in MODEL_REGISTRY
+- [ ] **CSI-07**: Walk-forward backtesting includes CSI columns in training and test queries for v4/v3 model versions
+- [ ] **CSI-08**: GET /backtest returns by_speed_tier breakdown (Fast/Medium/Slow terciles) via JOIN at query time
+- [ ] **CSI-09**: GET /signals includes court_speed_index and court_speed_tier fields per signal
+- [ ] **CSI-10**: Dashboard BacktestTab renders speed tier ROI bar chart; SignalCard displays CSI badge
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -207,12 +220,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PIN-05 | Phase 12 | Planned |
 | PIN-06 | Phase 12 | Planned |
 | PIN-07 | Phase 12 | Planned |
+| CSI-01 | Phase 14 | Planned |
+| CSI-02 | Phase 14 | Planned |
+| CSI-03 | Phase 14 | Planned |
+| CSI-04 | Phase 14 | Planned |
+| CSI-05 | Phase 14 | Planned |
+| CSI-06 | Phase 14 | Planned |
+| CSI-07 | Phase 14 | Planned |
+| CSI-08 | Phase 14 | Planned |
+| CSI-09 | Phase 14 | Planned |
+| CSI-10 | Phase 14 | Planned |
 
 **Coverage:**
-- v1 requirements: 64 total
-- Mapped to phases: 64
+- v1 requirements: 74 total
+- Mapped to phases: 74
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-24 after Phase 12 planning — 7 Pinnacle requirements added*
+*Last updated: 2026-03-25 after Phase 14 planning — 10 Court Speed Index requirements added*
