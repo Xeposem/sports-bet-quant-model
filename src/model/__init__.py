@@ -7,6 +7,8 @@ from src.model.ensemble import (
     predict as ensemble_predict,
     train_pinnacle as ensemble_pinnacle_train,
     predict_pinnacle as ensemble_pinnacle_predict,
+    train_v3 as ensemble_v3_train,
+    predict_v3 as ensemble_v3_predict,
 )
 
 
@@ -37,4 +39,8 @@ MODEL_REGISTRY = {
     "xgboost_v2_pinnacle":   {"train": xgb_train,                "predict": xgb_predict},
     # Pinnacle ensemble: blends logistic_v3_pinnacle + xgboost_v2_pinnacle via inverse Brier
     "ensemble_v2_pinnacle":  {"train": ensemble_pinnacle_train,  "predict": ensemble_pinnacle_predict},
+    # CSI-augmented versions: include court_speed_index, has_no_csi, speed_affinity_diff features
+    "logistic_v4":    {"train": logistic_train,      "predict": logistic_predict},
+    "xgboost_v3":     {"train": xgb_train,           "predict": xgb_predict},
+    "ensemble_v3":    {"train": ensemble_v3_train,   "predict": ensemble_v3_predict},
 }
