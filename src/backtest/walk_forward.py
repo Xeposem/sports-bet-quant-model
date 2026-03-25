@@ -99,6 +99,8 @@ _FOLD_TEST_MATCHES_SQL = """
         COALESCE(w.days_since_last, 0) - COALESCE(l.days_since_last, 0)     AS fatigue_diff,
         CASE WHEN COALESCE(w.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_w,
         CASE WHEN COALESCE(l.elo_overall, 1500.0) = 1500.0 THEN 1 ELSE 0 END AS has_no_elo_l,
+        CASE WHEN w.pinnacle_prob_winner IS NULL THEN 1 ELSE 0 END AS has_no_pinnacle,
+        w.pinnacle_prob_winner AS pinnacle_prob_market,
         o.decimal_odds_a, o.decimal_odds_b
     FROM match_features w
     JOIN match_features l
@@ -160,6 +162,8 @@ _FOLD_XGB_TEST_MATCHES_SQL = """
         -- One-hot tourney_level
         CASE WHEN w.tourney_level = 'G' THEN 1 ELSE 0 END AS level_G,
         CASE WHEN w.tourney_level = 'M' THEN 1 ELSE 0 END AS level_M,
+        CASE WHEN w.pinnacle_prob_winner IS NULL THEN 1 ELSE 0 END AS has_no_pinnacle,
+        w.pinnacle_prob_winner AS pinnacle_prob_market,
         o.decimal_odds_a, o.decimal_odds_b
     FROM match_features w
     JOIN match_features l
@@ -327,14 +331,18 @@ def build_fold_test_matches(
     for row in rows:
         # Columns: 0=tourney_id, 1=match_num, 2=tour, 3=winner_id, 4=loser_id,
         #          5=tourney_date, 6=surface, 7=tourney_level, 8=winner_rank,
-        #          9=loser_rank, 10..21=feature columns, 22=decimal_odds_a, 23=decimal_odds_b
+        #          9=loser_rank, 10..21=feature columns (12 LOGISTIC_FEATURES),
+        #          22=has_no_pinnacle, 23=pinnacle_prob_market,
+        #          24=decimal_odds_a, 25=decimal_odds_b
         feature_start = 10
         feature_vec = np.array(
             [row[feature_start + i] for i in range(len(LOGISTIC_FEATURES))],
             dtype=np.float64,
         )
-        decimal_odds_a = row[22]
-        decimal_odds_b = row[23]
+        odds_offset = feature_start + len(LOGISTIC_FEATURES)
+        pinnacle_prob_market = row[odds_offset + 1]  # pinnacle_prob_market
+        decimal_odds_a = row[odds_offset + 2]
+        decimal_odds_b = row[odds_offset + 3]
         has_odds = (decimal_odds_a is not None and decimal_odds_b is not None)
 
         matches.append({
@@ -349,6 +357,7 @@ def build_fold_test_matches(
             "winner_rank": row[8],
             "loser_rank": row[9],
             "features": feature_vec,
+            "pinnacle_prob_market": pinnacle_prob_market,
             "decimal_odds_a": decimal_odds_a,
             "decimal_odds_b": decimal_odds_b,
             "has_odds": has_odds,
@@ -395,15 +404,16 @@ def build_fold_xgb_test_matches(
         # Columns: 0=tourney_id, 1=match_num, 2=tour, 3=winner_id, 4=loser_id,
         #          5=tourney_date, 6=surface, 7=tourney_level, 8=winner_rank,
         #          9=loser_rank, 10..10+len(XGB_FEATURES)-1=XGB feature columns,
-        #          then decimal_odds_a, decimal_odds_b
+        #          then has_no_pinnacle, pinnacle_prob_market, decimal_odds_a, decimal_odds_b
         feature_start = 10
         feature_vec = np.array(
             [row[feature_start + i] for i in range(len(XGB_FEATURES))],
             dtype=np.float64,
         )
         odds_offset = feature_start + len(XGB_FEATURES)
-        decimal_odds_a = row[odds_offset]
-        decimal_odds_b = row[odds_offset + 1]
+        pinnacle_prob_market = row[odds_offset + 1]  # pinnacle_prob_market
+        decimal_odds_a = row[odds_offset + 2]
+        decimal_odds_b = row[odds_offset + 3]
         has_odds = (decimal_odds_a is not None and decimal_odds_b is not None)
 
         matches.append({
@@ -418,6 +428,7 @@ def build_fold_xgb_test_matches(
             "winner_rank": row[8],
             "loser_rank": row[9],
             "features": feature_vec,
+            "pinnacle_prob_market": pinnacle_prob_market,
             "decimal_odds_a": decimal_odds_a,
             "decimal_odds_b": decimal_odds_b,
             "has_odds": has_odds,
@@ -656,6 +667,7 @@ def run_fold(
     kelly_fraction = config.get("kelly_fraction", 0.25)
     max_fraction = config.get("max_fraction", 0.03)
     min_ev = config.get("min_ev", 0.0)
+    clv_threshold = config.get("clv_threshold", 0.0)
     model_version = config.get("model_version", "logistic_v1")
     fold_year = int(test_start[:4])
 
@@ -771,6 +783,13 @@ def run_fold(
         ev_winner = compute_ev(prob_winner, decimal_odds_a)
         ev_loser = compute_ev(prob_loser, decimal_odds_b)
 
+        # Extract CLV data from match dict (new columns added in Phase 13)
+        pinnacle_prob_market = match.get("pinnacle_prob_market")
+        has_no_pinnacle_flag = 1 if pinnacle_prob_market is None else 0
+        pinnacle_prob_loser_side = (
+            (1.0 - pinnacle_prob_market) if pinnacle_prob_market is not None else None
+        )
+
         # Compute full Kelly (for logging) and fractional Kelly bet
         def _full_kelly(prob: float, decimal_odds: float) -> float:
             b = decimal_odds - 1.0
@@ -784,12 +803,18 @@ def run_fold(
             kelly_fraction=kelly_fraction,
             max_fraction=max_fraction,
             min_ev=min_ev,
+            clv_threshold=clv_threshold,
+            pinnacle_prob=pinnacle_prob_market,
+            has_no_pinnacle=has_no_pinnacle_flag,
         )
         kelly_bet_loser = compute_kelly_bet(
             prob_loser, decimal_odds_b, bankroll,
             kelly_fraction=kelly_fraction,
             max_fraction=max_fraction,
             min_ev=min_ev,
+            clv_threshold=clv_threshold,
+            pinnacle_prob=pinnacle_prob_loser_side,
+            has_no_pinnacle=has_no_pinnacle_flag,
         )
 
         # Process winner-side bet
@@ -902,6 +927,7 @@ def run_walk_forward(
     kelly_fraction = config.get("kelly_fraction", 0.25)
     max_fraction = config.get("max_fraction", 0.03)
     min_ev = config.get("min_ev", 0.0)
+    clv_threshold = config.get("clv_threshold", 0.0)
     initial_bankroll = config.get("initial_bankroll", 1000.0)
     min_train_matches = config.get("min_train_matches", 500)
     model_version = config.get("model_version", "logistic_v1")
@@ -910,6 +936,7 @@ def run_walk_forward(
         "kelly_fraction": kelly_fraction,
         "max_fraction": max_fraction,
         "min_ev": min_ev,
+        "clv_threshold": clv_threshold,
         "model_version": model_version,
     }
 
