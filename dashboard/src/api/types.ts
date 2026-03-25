@@ -25,6 +25,7 @@ export interface BacktestSummary {
   by_year: Record<string, unknown>[];
   by_ev_bucket: Record<string, unknown>[];
   by_rank_tier: Record<string, unknown>[];
+  by_speed_tier: Record<string, unknown>[];
 }
 export interface BacktestBetRow {
   id: number;
@@ -253,6 +254,8 @@ export interface SignalRecord {
   sharpe: number | null;
   predicted_at: string | null;
   created_at: string;
+  court_speed_index: number | null;
+  court_speed_tier: string | null;  // "Fast" | "Medium" | "Slow" | null
 }
 
 export interface SignalsResponse {

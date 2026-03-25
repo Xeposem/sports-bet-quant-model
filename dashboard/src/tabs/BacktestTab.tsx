@@ -142,6 +142,7 @@ export function BacktestTab() {
   const yearData = summary?.by_year ? toRoiData(summary.by_year, 'year') : [];
   const evBucketData = summary?.by_ev_bucket ? toRoiData(summary.by_ev_bucket, 'ev_bucket') : [];
   const rankTierData = summary?.by_rank_tier ? toRoiData(summary.by_rank_tier, 'rank_tier') : [];
+  const speedTierData = summary?.by_speed_tier ? toRoiData(summary.by_speed_tier, 'speed_tier') : [];
 
   return (
     <div>
@@ -210,15 +211,26 @@ export function BacktestTab() {
               </div>
             </div>
 
-            {/* Rank Tier — full width */}
-            <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-              <h3 className="text-xs uppercase tracking-wider text-slate-400 mb-3">ROI by Rank Tier</h3>
-              <RoiBarChart
-                data={rankTierData}
-                dimension="rank_tier"
-                onBarClick={(value) => handleBarClick('rank_tier', value)}
-                activeFilter={chartFilter?.dimension === 'rank_tier' ? chartFilter.value : undefined}
-              />
+            {/* Rank Tier and Speed Tier — 2-column row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                <h3 className="text-xs uppercase tracking-wider text-slate-400 mb-3">ROI by Rank Tier</h3>
+                <RoiBarChart
+                  data={rankTierData}
+                  dimension="rank_tier"
+                  onBarClick={(value) => handleBarClick('rank_tier', value)}
+                  activeFilter={chartFilter?.dimension === 'rank_tier' ? chartFilter.value : undefined}
+                />
+              </div>
+              <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                <h3 className="text-xs uppercase tracking-wider text-slate-400 mb-3">ROI by Court Speed Tier</h3>
+                <RoiBarChart
+                  data={speedTierData}
+                  dimension="speed_tier"
+                  onBarClick={(value) => handleBarClick('speed_tier', value)}
+                  activeFilter={chartFilter?.dimension === 'speed_tier' ? chartFilter.value : undefined}
+                />
+              </div>
             </div>
           </>
         ) : (

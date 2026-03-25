@@ -137,6 +137,16 @@ export function SignalCard({
         </span>
       </div>
       <p className="text-xs text-slate-500 mt-2">{signal.model_version}</p>
+      {signal.court_speed_tier && (
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium mt-1 ${
+          signal.court_speed_tier === 'Fast' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+          signal.court_speed_tier === 'Slow' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+          'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+        }`}>
+          {signal.court_speed_tier}
+          {signal.court_speed_index != null && ` (${signal.court_speed_index.toFixed(2)})`}
+        </span>
+      )}
       <div className="flex gap-2 mt-3">
         {signal.status !== 'expired' && signal.status !== 'acted-on' && (
           <button
