@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
+import numpy as np
 from fastapi import APIRouter, HTTPException, Request
 from typing import Optional
 
@@ -75,13 +76,22 @@ async def get_signals(
             """)
             conn.commit()
 
-            # 3. Join signals with predictions
+            # 3. Compute CSI tercile bounds in Python (SQLite lacks PERCENTILE_CONT)
+            csi_bounds_rows = conn.execute(
+                "SELECT csi_value FROM court_speed_index ORDER BY csi_value"
+            ).fetchall()
+            csi_vals = [float(r[0]) for r in csi_bounds_rows]
+            p33 = float(np.percentile(csi_vals, 33.3)) if csi_vals else 0.33
+            p67 = float(np.percentile(csi_vals, 66.7)) if csi_vals else 0.67
+
+            # 4. Join signals with predictions and court_speed_index
             query = """
                 SELECT
                     s.id, s.tourney_id, s.match_num, s.tour, s.player_id,
                     s.model_version, s.status, s.created_at,
                     p.calibrated_prob, p.ev_value, p.edge, p.decimal_odds,
-                    p.predicted_at
+                    p.predicted_at,
+                    csi.csi_value AS court_speed_index
                 FROM signals s
                 JOIN predictions p
                   ON s.tourney_id = p.tourney_id
@@ -89,6 +99,9 @@ async def get_signals(
                  AND s.tour = p.tour
                  AND s.player_id = p.player_id
                  AND s.model_version = p.model_version
+                LEFT JOIN court_speed_index csi
+                  ON s.tourney_id = csi.tourney_id
+                 AND csi.tour = s.tour
                 WHERE 1=1
             """
             params = []
@@ -117,6 +130,17 @@ async def get_signals(
                     except Exception:
                         kelly_stake = None
 
+                # Compute court speed tier from CSI value
+                csi_val = r["court_speed_index"]
+                tier = None
+                if csi_val is not None:
+                    if csi_val >= p67:
+                        tier = "Fast"
+                    elif csi_val <= p33:
+                        tier = "Slow"
+                    else:
+                        tier = "Medium"
+
                 results.append({
                     "id": r["id"],
                     "tourney_id": r["tourney_id"],
@@ -134,6 +158,8 @@ async def get_signals(
                     "sharpe": None,
                     "predicted_at": r["predicted_at"],
                     "created_at": r["created_at"],
+                    "court_speed_index": csi_val,
+                    "court_speed_tier": tier,
                 })
 
             return results

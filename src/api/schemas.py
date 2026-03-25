@@ -88,6 +88,7 @@ class BacktestSummary(BaseModel):
     by_year: List[Dict[str, Any]]
     by_ev_bucket: List[Dict[str, Any]]
     by_rank_tier: List[Dict[str, Any]]
+    by_speed_tier: List[Dict[str, Any]] = []
 
 
 class BacktestBetRow(BaseModel):
@@ -425,6 +426,8 @@ class SignalRecord(BaseModel):
     sharpe: Optional[float] = None
     predicted_at: Optional[str] = None
     created_at: str
+    court_speed_index: Optional[float] = None
+    court_speed_tier: Optional[str] = None
 
 
 class SignalsResponse(BaseModel):

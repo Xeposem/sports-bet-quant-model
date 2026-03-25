@@ -13,6 +13,8 @@ import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
+import numpy as np
+
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import text
 
@@ -204,6 +206,48 @@ async def get_backtest_summary(
     )
     by_rank_tier = _breakdown_rows((await db.execute(by_rank_sql, params)).mappings().all())
 
+    # --- by_speed_tier ---
+    # Compute tercile boundaries in Python (SQLite lacks PERCENTILE_CONT)
+    tier_bounds_sql = text("SELECT csi_value FROM court_speed_index ORDER BY csi_value")
+    csi_rows = (await db.execute(tier_bounds_sql)).fetchall()
+    csi_vals = [float(r[0]) for r in csi_rows]
+    if csi_vals:
+        p33 = float(np.percentile(csi_vals, 33.3))
+        p67 = float(np.percentile(csi_vals, 66.7))
+    else:
+        p33, p67 = 0.33, 0.67  # safe defaults if no CSI data
+
+    by_speed_sql = text("""
+        SELECT
+            CASE
+                WHEN csi.csi_value >= :p67 THEN 'Fast'
+                WHEN csi.csi_value <= :p33 THEN 'Slow'
+                ELSE 'Medium'
+            END AS label,
+            COUNT(*)        AS n_bets,
+            SUM(br.pnl_kelly)  AS sum_pnl_kelly,
+            SUM(br.kelly_bet)  AS sum_kelly_bet,
+            SUM(br.pnl_flat)   AS sum_pnl_flat,
+            SUM(br.flat_bet)   AS sum_flat_bet
+        FROM backtest_results br
+        JOIN matches m
+          ON br.tourney_id = m.tourney_id
+         AND br.match_num = m.match_num
+         AND br.tour = m.tour
+        LEFT JOIN court_speed_index csi
+          ON m.tourney_id = csi.tourney_id
+         AND csi.tour = m.tour
+        WHERE br.kelly_bet > 0
+          AND br.model_version = :model
+          AND csi.csi_value IS NOT NULL
+        GROUP BY label
+        ORDER BY label
+    """)
+    speed_params = {**params, "p33": p33, "p67": p67}
+    by_speed_tier = _breakdown_rows(
+        (await db.execute(by_speed_sql, speed_params)).mappings().all()
+    )
+
     return BacktestSummary(
         n_bets=n_bets,
         kelly_roi=kelly_roi,
@@ -215,6 +259,7 @@ async def get_backtest_summary(
         by_year=by_year,
         by_ev_bucket=by_ev_bucket,
         by_rank_tier=by_rank_tier,
+        by_speed_tier=by_speed_tier,
     )
 
 
