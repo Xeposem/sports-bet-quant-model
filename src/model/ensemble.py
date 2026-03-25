@@ -12,6 +12,9 @@ COMPONENT_MODELS = ["logistic_v1", "xgboost_v1", "bayesian_v1"]
 # Pinnacle-augmented ensemble components (Phase 12)
 PINNACLE_COMPONENT_MODELS = ["logistic_v3_pinnacle", "xgboost_v2_pinnacle"]
 
+# CSI-augmented ensemble components (Phase 14)
+CSI_COMPONENT_MODELS = ["logistic_v4", "xgboost_v3"]
+
 
 def compute_weights(brier_scores: dict) -> dict:
     """Compute inverse Brier score weights, normalized to sum=1.
@@ -148,6 +151,60 @@ def train_pinnacle(conn, config=None):
         "component_brier_scores": brier_scores,
     }
     return ensemble_state, ensemble_metrics
+
+
+def train_v3(conn, config=None):
+    """Registry-compliant train: trains CSI-augmented ensemble_v3 components, computes weights.
+
+    Blends logistic_v4 + xgboost_v3 via inverse Brier score weighting.
+    Same pattern as train_pinnacle() but uses CSI_COMPONENT_MODELS.
+    """
+    from src.model import MODEL_REGISTRY
+    from src.model.base import build_v4_training_matrix, compute_time_weights, temporal_split
+
+    if config is None:
+        config = {}
+
+    X, y, match_dates = build_v4_training_matrix(conn)
+    weights = compute_time_weights(match_dates)
+    split = temporal_split(X, y, weights, match_dates)
+
+    trained_models = {}
+    brier_scores = {}
+
+    for model_key in CSI_COMPONENT_MODELS:
+        if model_key not in MODEL_REGISTRY:
+            logger.warning("CSI component model %s not in registry, skipping", model_key)
+            continue
+        try:
+            entry = MODEL_REGISTRY[model_key]
+            model, metrics = entry["train"](conn, config.get(model_key, {}))
+            trained_models[model_key] = {"model": model, "predict": entry["predict"]}
+            brier_scores[model_key] = metrics.get("val_brier_score")
+            logger.info("CSI ensemble component %s: brier=%.4f",
+                       model_key, brier_scores[model_key] or -1)
+        except Exception as exc:
+            logger.warning("CSI ensemble component %s failed: %s", model_key, exc)
+            brier_scores[model_key] = None
+
+    ensemble_weights = compute_weights(brier_scores)
+
+    ensemble_state = {
+        "models": trained_models,
+        "weights": ensemble_weights,
+        "brier_scores": brier_scores,
+    }
+    ensemble_metrics = {
+        "val_brier_score": None,
+        "component_weights": ensemble_weights,
+        "component_brier_scores": brier_scores,
+    }
+    return ensemble_state, ensemble_metrics
+
+
+def predict_v3(ensemble_state, features, **kwargs):
+    """Registry-compliant predict for CSI ensemble (ensemble_v3). Same logic as predict()."""
+    return predict(ensemble_state, features, **kwargs)
 
 
 def predict_pinnacle(ensemble_state, features, **kwargs):
