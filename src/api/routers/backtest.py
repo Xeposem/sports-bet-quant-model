@@ -317,7 +317,15 @@ def _run_backtest(job_id: str, db_path: str, config: dict) -> None:
         update_job(job_id, step="running_walk_forward")
         conn = get_connection(db_path)
         try:
-            result = run_walk_forward(conn, config)
+            if config.get("sweep"):
+                from src.backtest.walk_forward import run_clv_sweep
+                sweep_results = run_clv_sweep(conn, config)
+                # Run the regular backtest at the configured threshold to leave DB consistent
+                regular_result = run_walk_forward(conn, config)
+                result = {"sweep": sweep_results}
+                result.update(regular_result)
+            else:
+                result = run_walk_forward(conn, config)
             update_job(job_id, status="complete", step="done", result=result)
         finally:
             conn.close()
@@ -340,6 +348,8 @@ async def post_backtest_run(body: BacktestRunRequest, request: Request) -> JobRe
         "min_ev": body.ev_threshold,
         "initial_bankroll": body.initial_bankroll,
         "model_version": body.model_version,
+        "clv_threshold": body.clv_threshold,
+        "sweep": body.sweep,
     }
 
     loop = asyncio.get_event_loop()

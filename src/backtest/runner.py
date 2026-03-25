@@ -98,6 +98,19 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="STR",
         help="Model version string (default: logistic_v1)",
     )
+    parser.add_argument(
+        "--clv-threshold",
+        type=float,
+        default=0.03,
+        metavar="F",
+        help="CLV threshold: minimum model_prob - pinnacle_prob to place bet (default: 0.03, per D-04)",
+    )
+    parser.add_argument(
+        "--sweep",
+        action="store_true",
+        default=False,
+        help="Run CLV threshold sweep across [0.01, 0.02, 0.03, 0.05, 0.07, 0.10]",
+    )
     return parser
 
 
@@ -132,9 +145,28 @@ def main(argv: Optional[list[str]] = None) -> None:
             "initial_bankroll": args.bankroll,
             "min_train_matches": args.min_train,
             "model_version": args.model_version,
+            "clv_threshold": args.clv_threshold,
         }
 
-        # Step 1: Run walk-forward backtesting
+        # Optional CLV sweep: run at multiple thresholds then fall through to regular backtest
+        if args.sweep:
+            from src.backtest.walk_forward import run_clv_sweep
+            logger.info("Running CLV threshold sweep")
+            sweep_results = run_clv_sweep(conn, config)
+            print("\nCLV Threshold Sweep Results:")
+            print(f"{'Threshold':>10} | {'Bets':>6} | {'ROI':>8} | {'Sharpe':>8} | {'Max DD':>8}")
+            print("-" * 50)
+            for r in sweep_results:
+                print(
+                    f"{r['clv_threshold']:>10.2f} | {r['bets_placed']:>6d} | "
+                    f"{r['roi']:>7.2%} | {r['sharpe']:>8.4f} | {r['max_drawdown']:>7.2%}"
+                )
+            logger.info(
+                "Sweep complete. Running regular backtest at clv_threshold=%.2f",
+                args.clv_threshold,
+            )
+
+        # Step 1: Run walk-forward backtesting (at configured clv_threshold, overwrites DB results)
         logger.info("Starting walk-forward backtest (db=%s)", args.db)
         summary = run_walk_forward(conn, config)
 

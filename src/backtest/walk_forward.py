@@ -41,6 +41,9 @@ from src.model.trainer import (
 
 logger = logging.getLogger(__name__)
 
+# CLV sweep thresholds (D-07): candidate values to evaluate
+SWEEP_THRESHOLDS = [0.01, 0.02, 0.03, 0.05, 0.07, 0.10]
+
 
 # ---------------------------------------------------------------------------
 # SQL constants
@@ -1047,3 +1050,118 @@ def _store_backtest_results(conn: sqlite3.Connection, rows: list[dict]) -> int:
 
     conn.commit()
     return inserted
+
+
+# ---------------------------------------------------------------------------
+# CLV sweep functions (Phase 13, D-07, D-08)
+# ---------------------------------------------------------------------------
+
+
+def _compute_sweep_metrics(conn: sqlite3.Connection, model_version: str) -> tuple:
+    """Compute Sharpe ratio and max drawdown from backtest_results for the given model.
+
+    Parameters
+    ----------
+    conn:
+        Open SQLite connection.
+    model_version:
+        Model version string to filter results.
+
+    Returns
+    -------
+    Tuple of (sharpe: float, max_drawdown: float).
+    """
+    rows = conn.execute(
+        "SELECT pnl_kelly, bankroll_after FROM backtest_results "
+        "WHERE model_version = ? AND kelly_bet > 0 ORDER BY tourney_date, match_num",
+        (model_version,),
+    ).fetchall()
+    if len(rows) < 2:
+        return 0.0, 0.0
+
+    pnls = [r[0] for r in rows]
+    bankrolls = [r[1] for r in rows]
+
+    # Sharpe = mean(pnl) / std(pnl): simple per-bet Sharpe ratio
+    mean_pnl = sum(pnls) / len(pnls)
+    std_pnl = (sum((p - mean_pnl) ** 2 for p in pnls) / len(pnls)) ** 0.5
+    sharpe = mean_pnl / std_pnl if std_pnl > 0 else 0.0
+
+    # Max drawdown from equity curve
+    peak = bankrolls[0]
+    max_dd = 0.0
+    for b in bankrolls:
+        if b > peak:
+            peak = b
+        dd = (peak - b) / peak if peak > 0 else 0.0
+        if dd > max_dd:
+            max_dd = dd
+
+    return sharpe, max_dd
+
+
+def run_clv_sweep(
+    conn: sqlite3.Connection,
+    base_config: Optional[dict] = None,
+    thresholds: Optional[list] = None,
+) -> list:
+    """
+    Run walk-forward backtest at each CLV threshold value.
+
+    Returns list of summary dicts, one per threshold.
+    Each dict includes: clv_threshold, bets_placed, roi, sharpe, max_drawdown,
+    total_pnl, final_bankroll.
+
+    NOTE on DB side-effects: Each iteration calls run_walk_forward which
+    writes to backtest_results. The last iteration's results remain in the
+    DB. After sweep completes, the caller (CLI main() or API router) runs
+    a final regular backtest at the user's configured clv_threshold, which
+    overwrites backtest_results with the chosen threshold's data, leaving
+    the DB in a consistent state.
+
+    Parameters
+    ----------
+    conn:
+        Open SQLite connection.
+    base_config:
+        Base configuration dict. Each sweep iteration adds/overrides clv_threshold.
+    thresholds:
+        List of CLV threshold values to sweep. Defaults to SWEEP_THRESHOLDS.
+
+    Returns
+    -------
+    List of dicts, one per threshold, each with keys:
+        clv_threshold, bets_placed, roi, sharpe, max_drawdown, total_pnl, final_bankroll.
+    """
+    if thresholds is None:
+        thresholds = SWEEP_THRESHOLDS
+    if base_config is None:
+        base_config = {}
+
+    results = []
+    for thresh in thresholds:
+        cfg = {**base_config, "clv_threshold": thresh}
+        summary = run_walk_forward(conn, cfg)
+
+        # Compute ROI: total_pnl / total_stake
+        initial_bankroll = cfg.get("initial_bankroll", 1000.0)
+        max_fraction = cfg.get("max_fraction", 0.03)
+        bets_placed = summary.get("bets_placed", 0)
+        total_stake = bets_placed * initial_bankroll * max_fraction if bets_placed > 0 else 1.0
+        roi = summary.get("total_pnl_kelly", 0.0) / total_stake if total_stake > 0 else 0.0
+
+        # Compute Sharpe and max_drawdown from backtest_results
+        model_version = cfg.get("model_version", "logistic_v1")
+        sharpe, max_dd = _compute_sweep_metrics(conn, model_version)
+
+        results.append({
+            "clv_threshold": thresh,
+            "bets_placed": bets_placed,
+            "roi": roi,
+            "sharpe": sharpe,
+            "max_drawdown": max_dd,
+            "total_pnl": summary.get("total_pnl_kelly", 0.0),
+            "final_bankroll": summary.get("final_bankroll", initial_bankroll),
+        })
+
+    return results
