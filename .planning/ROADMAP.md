@@ -222,7 +222,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 11. TML Data Ingestion | 2/2 | Complete    | 2026-03-23 |
 | 12. Pinnacle Odds Feature | 3/3 | Complete    | 2026-03-25 |
 | 13. EV Threshold Filtering | 2/2 | Complete    | 2026-03-25 |
-| 14. Court Speed Index | 2/3 | In Progress|  |
+| 14. Court Speed Index | 2/3 | Complete    | 2026-03-25 |
 
 ### Phase 12: Add Pinnacle odds as a feature and retrain on the residual
 
@@ -274,7 +274,7 @@ Plans:
   6. Walk-forward backtesting includes CSI columns for v4/v3 model versions; older versions unaffected
   7. Backtest tab shows ROI breakdown by court speed tier (Fast/Medium/Slow terciles)
   8. Signal cards display CSI badge with tier label
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 14-01-PLAN.md -- CSI computation module, schema migration, builder integration, tests
@@ -286,7 +286,7 @@ Plans:
 **Goal:** [To be planned]
 **Requirements**: TBD
 **Depends on:** Phase 14
-**Plans:** 0 plans
+**Plans:** 1/4 plans executed
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 15 to break down)

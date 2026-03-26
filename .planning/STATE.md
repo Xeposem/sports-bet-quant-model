@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase complete — ready for verification
-stopped_at: Completed 14-02-PLAN.md
-last_updated: "2026-03-25T23:22:26.396Z"
+status: Ready to execute
+stopped_at: Completed 15-01-PLAN.md
+last_updated: "2026-03-26T05:39:09.600Z"
 progress:
   total_phases: 15
-  completed_phases: 13
-  total_plans: 44
-  completed_plans: 43
+  completed_phases: 14
+  total_plans: 48
+  completed_plans: 45
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Accurate, data-driven predictions that identify positive expected value betting opportunities in tennis — measured by demonstrable edge over bookmaker lines in backtesting
-**Current focus:** Phase 14 — add-court-speed-index-per-tournament
+**Current focus:** Phase 15 — explore-prop-markets-negbin-models-may-have-more-edge-on-aces-and-games-than-the-moneyline-model
 
 ## Current Position
 
-Phase: 14 (add-court-speed-index-per-tournament) — EXECUTING
-Plan: 3 of 3
+Phase: 15 (explore-prop-markets-negbin-models-may-have-more-edge-on-aces-and-games-than-the-moneyline-model) — EXECUTING
+Plan: 2 of 4
 
 ## Performance Metrics
 
@@ -91,6 +91,7 @@ Plan: 3 of 3
 | Phase 14-add-court-speed-index-per-tournament P01 | 277 | 2 tasks | 5 files |
 | Phase 14-add-court-speed-index-per-tournament P03 | 3 | 2 tasks | 6 files |
 | Phase 14-add-court-speed-index-per-tournament P02 | 360 | 2 tasks | 4 files |
+| Phase 15-explore-prop-markets-negbin-models-may-have-more-edge-on-aces-and-games-than-the-moneyline-model P01 | 6 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -211,6 +212,8 @@ Recent decisions affecting current work:
 - [Phase 14-add-court-speed-index-per-tournament]: numpy.percentile used in API routers for tercile computation — SQLite lacks PERCENTILE_CONT
 - [Phase 14-add-court-speed-index-per-tournament]: LOGISTIC_V4_FEATURES = LOGISTIC_FEATURES + [...] — list concatenation preserves old constant intact for backward-compatible serialized models
 - [Phase 14-add-court-speed-index-per-tournament]: ensemble_v3 blends logistic_v4 + xgboost_v3 only (no Bayesian) — follows pinnacle ensemble pattern; run_fold uses v4 SQL with CSI JOINs for new versions
+- [Phase 15-explore-prop-markets-negbin-models-may-have-more-edge-on-aces-and-games-than-the-moneyline-model]: SQLite HAVING without GROUP BY not valid in correlated subquery — used CASE WHEN COUNT(*) >= 3 pattern for H2H minimum sample check
+- [Phase 15-explore-prop-markets-negbin-models-may-have-more-edge-on-aces-and-games-than-the-moneyline-model]: var_weights used in GLM fit for time-decay (not freq_weights) — matches Phase 3 compute_time_weights RESEARCH.md Pitfall 1 note
 
 ### Roadmap Evolution
 
@@ -234,6 +237,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-25T23:22:26.388Z
-Stopped at: Completed 14-02-PLAN.md
+Last session: 2026-03-26T05:39:09.589Z
+Stopped at: Completed 15-01-PLAN.md
 Resume file: None
