@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api/client';
-import type { PropsListResponse, PropLineEntry, PropLineResponse, PropAccuracyResponse, PropScanResponse } from '../api/types';
+import type { PropsListResponse, PropLineEntry, PropLineResponse, PropAccuracyResponse, PropScanResponse, PropBacktestResponse } from '../api/types';
 
 export function useProps() {
   return useQuery<PropsListResponse>({
@@ -44,6 +44,15 @@ export function usePropAccuracy() {
   return useQuery<PropAccuracyResponse>({
     queryKey: ['props', 'accuracy'],
     queryFn: () => apiFetch<PropAccuracyResponse>('/props/accuracy'),
+    staleTime: Infinity,
+    retry: 1,
+  });
+}
+
+export function usePropBacktest() {
+  return useQuery<PropBacktestResponse>({
+    queryKey: ['props', 'backtest'],
+    queryFn: () => apiFetch<PropBacktestResponse>('/props/backtest'),
     staleTime: Infinity,
     retry: 1,
   });

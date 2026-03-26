@@ -96,10 +96,12 @@ export interface RefreshStatusResponse {
 }
 
 // Props schemas
+export type StatType = 'aces' | 'games_won' | 'double_faults' | 'breaks_of_serve' | 'sets_won' | 'first_set_winner';
+
 export interface PropPrediction {
   id: number;
   player_name: string;
-  stat_type: 'aces' | 'games_won' | 'double_faults';
+  stat_type: StatType;
   match_date: string;
   mu: number;
   pmf: number[];
@@ -113,7 +115,7 @@ export interface PropPrediction {
 
 export interface PropLineEntry {
   player_name: string;
-  stat_type: 'aces' | 'games_won' | 'double_faults';
+  stat_type: StatType;
   line_value: number;
   direction: 'over' | 'under';
   match_date: string;
@@ -148,10 +150,40 @@ export interface PropAccuracyResponse {
   calibration_bins: PropAccuracyBin[];
 }
 
+export interface PropBacktestStatRow {
+  stat_type: string;
+  hit_rate: number;
+  n: number;
+  avg_p_hit: number;
+  calibration_score: number;
+}
+
+export interface PropBacktestCalibrationBin {
+  stat_type: string;
+  predicted_p: number;
+  actual_hit_rate: number;
+  n: number;
+}
+
+export interface PropBacktestRollingRow {
+  date: string;
+  stat_type: string;
+  hit_rate: number;
+}
+
+export interface PropBacktestResponse {
+  status: string;
+  date_from: string;
+  total_tracked: number;
+  by_stat_type: PropBacktestStatRow[];
+  calibration_bins: PropBacktestCalibrationBin[];
+  rolling_hit_rate: PropBacktestRollingRow[];
+}
+
 // Screenshot scan schemas (Phase 10)
 export interface PropScanCard {
   player_name: string;
-  stat_type: 'aces' | 'games_won' | 'double_faults';
+  stat_type: StatType;
   line_value: number;
   directions: Array<'over' | 'under'>;
 }
