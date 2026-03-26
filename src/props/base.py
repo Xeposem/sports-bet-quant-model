@@ -216,7 +216,19 @@ def predict_and_store(
                 mf.avg_df_rate,
                 -- Opponent return pct: other player's (first_won + second_won) / svpt
                 ms_opp.first_won  + ms_opp.second_won  AS opp_rtn_won,
-                ms_opp.svpt                             AS opp_svpt
+                ms_opp.svpt                             AS opp_svpt,
+                -- Court speed index (D-04)
+                COALESCE(csi.csi_value, 0.5)            AS court_speed_index,
+                CASE WHEN csi.csi_value IS NULL THEN 1 ELSE 0 END AS has_no_csi,
+                -- Pinnacle market probability (D-04)
+                CASE ms.player_role
+                    WHEN 'winner' THEN COALESCE(mf.pinnacle_prob_winner, 0.5)
+                    ELSE COALESCE(mf.pinnacle_prob_loser, 0.5)
+                END AS pinnacle_prob,
+                COALESCE(mf.has_no_pinnacle, 1)         AS has_no_pinnacle,
+                -- Opponent break point rate (D-07)
+                CAST(COALESCE(ms_opp.bp_faced, 0) AS REAL)
+                    / NULLIF(CAST(ms_opp.sv_gms AS REAL), 0) AS opp_bp_rate
             FROM match_stats ms
             JOIN matches m
               ON  ms.tourney_id = m.tourney_id
@@ -235,6 +247,9 @@ def predict_and_store(
               AND ms_opp.match_num   = ms.match_num
               AND ms_opp.tour        = ms.tour
               AND ms_opp.player_role != ms.player_role
+            LEFT JOIN court_speed_index csi
+              ON  csi.tourney_id = ms.tourney_id
+              AND csi.tour       = ms.tour
             WHERE m.tourney_date BETWEEN ? AND ?
               AND m.match_type = 'completed'
         """
@@ -259,6 +274,15 @@ def predict_and_store(
                 "opp_rtn_pct": opp_rtn_pct,
                 "surface": row["surface"] or "Hard",
                 "tourney_level": row["tourney_level"] or "A",
+                # New features (D-04)
+                "court_speed_index": row["court_speed_index"] if row["court_speed_index"] is not None else 0.5,
+                "has_no_csi": row["has_no_csi"] if row["has_no_csi"] is not None else 1,
+                "pinnacle_prob": row["pinnacle_prob"] if row["pinnacle_prob"] is not None else 0.5,
+                "has_no_pinnacle": row["has_no_pinnacle"] if row["has_no_pinnacle"] is not None else 1,
+                "opp_bp_rate": row["opp_bp_rate"] if row["opp_bp_rate"] is not None else 0.15,
+                # H2H defaults -- predict_and_store uses player avg as fallback
+                "h2h_ace_rate": row["avg_ace_rate"] or 0.0,
+                "h2h_games_rate": 0.0,
             }
 
             try:

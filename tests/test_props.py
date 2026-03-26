@@ -379,6 +379,41 @@ def test_schema_has_prop_predictions():
 
 
 # ---------------------------------------------------------------------------
+# Phase 15 Plan 01: Time-decay weights and updated predict_and_store tests
+# ---------------------------------------------------------------------------
+
+
+def test_time_decay_weights():
+    """compute_time_weights returns valid weights for a list of date strings."""
+    from src.model.base import compute_time_weights
+
+    dates = ["2023-01-01", "2023-07-01", "2024-01-01"]
+    weights = compute_time_weights(dates, half_life_days=365)
+    assert len(weights) == 3
+    # All weights should be positive
+    assert all(w > 0 for w in weights)
+    # Most recent date should have the highest weight
+    assert weights[-1] >= weights[0]
+    # Weights should be <= 1.0
+    assert all(w <= 1.0 for w in weights)
+
+
+def test_predict_and_store_includes_csi_features():
+    """predict_and_store query compiles without SQL errors using DB with CSI table."""
+    import src.props.aces as aces_mod
+    from src.props.base import predict_and_store
+
+    conn = _make_test_db_with_data(25)
+    # Train aces model first
+    trained = aces_mod.train(conn)
+    # predict_and_store should execute without SQL errors (includes court_speed_index JOIN)
+    result = predict_and_store(conn, stat_types=["aces"], date_from="2023-01-01", date_to="2025-12-31")
+    # Should succeed and produce predictions
+    assert result["predicted"] >= 0
+    assert "aces" in result["stat_types"]
+
+
+# ---------------------------------------------------------------------------
 # Task 3: predict_and_store and CLI tests (implemented in Task 3)
 # ---------------------------------------------------------------------------
 
