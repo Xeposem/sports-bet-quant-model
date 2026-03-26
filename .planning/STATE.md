@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 15-01-PLAN.md
-last_updated: "2026-03-26T05:39:09.600Z"
+stopped_at: Completed 15-03-PLAN.md
+last_updated: "2026-03-26T05:51:10.524Z"
 progress:
   total_phases: 15
   completed_phases: 14
   total_plans: 48
-  completed_plans: 45
+  completed_plans: 47
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 ## Current Position
 
 Phase: 15 (explore-prop-markets-negbin-models-may-have-more-edge-on-aces-and-games-than-the-moneyline-model) — EXECUTING
-Plan: 2 of 4
+Plan: 4 of 4
 
 ## Performance Metrics
 
@@ -92,6 +92,8 @@ Plan: 2 of 4
 | Phase 14-add-court-speed-index-per-tournament P03 | 3 | 2 tasks | 6 files |
 | Phase 14-add-court-speed-index-per-tournament P02 | 360 | 2 tasks | 4 files |
 | Phase 15-explore-prop-markets-negbin-models-may-have-more-edge-on-aces-and-games-than-the-moneyline-model P01 | 6 | 2 tasks | 5 files |
+| Phase 15-explore-prop-markets-negbin-models-may-have-more-edge-on-aces-and-games-than-the-moneyline-model P02 | 35 | 2 tasks | 7 files |
+| Phase 15 P03 | 15 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -214,6 +216,10 @@ Recent decisions affecting current work:
 - [Phase 14-add-court-speed-index-per-tournament]: ensemble_v3 blends logistic_v4 + xgboost_v3 only (no Bayesian) — follows pinnacle ensemble pattern; run_fold uses v4 SQL with CSI JOINs for new versions
 - [Phase 15-explore-prop-markets-negbin-models-may-have-more-edge-on-aces-and-games-than-the-moneyline-model]: SQLite HAVING without GROUP BY not valid in correlated subquery — used CASE WHEN COUNT(*) >= 3 pattern for H2H minimum sample check
 - [Phase 15-explore-prop-markets-negbin-models-may-have-more-edge-on-aces-and-games-than-the-moneyline-model]: var_weights used in GLM fit for time-decay (not freq_weights) — matches Phase 3 compute_time_weights RESEARCH.md Pitfall 1 note
+- [Phase 15]: best_of derived from set count (total_sets >= 4 => best_of=5) to avoid match_features.best_of schema dependency in sets_won
+- [Phase 15]: first_set_winner uses LogisticRegression (sklearn) returning 2-element PMF -- binary outcome, not count distribution
+- [Phase 15]: Backtest endpoint uses actual > mu as 'hit' definition: measures model calibration independently of entered bookmaker lines
+- [Phase 15]: first_set_winner special-cased in backtest: mu is P(win) directly, so p_hit_val = mu instead of calling p_over
 
 ### Roadmap Evolution
 
@@ -237,6 +243,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-26T05:39:09.589Z
-Stopped at: Completed 15-01-PLAN.md
+Last session: 2026-03-26T05:51:10.517Z
+Stopped at: Completed 15-03-PLAN.md
 Resume file: None
