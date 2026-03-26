@@ -266,6 +266,48 @@ class PropAccuracyResponse(BaseModel):
     calibration_bins: List[PropAccuracyBin]
 
 
+class PropBacktestStatRow(BaseModel):
+    """Per-stat-type backtest performance row."""
+    model_config = ConfigDict(from_attributes=True)
+
+    stat_type: str
+    hit_rate: float
+    n: int
+    avg_p_hit: float
+    calibration_score: float  # mean absolute deviation of bins
+
+
+class PropBacktestCalibrationBin(BaseModel):
+    """One calibration bin in the backtest reliability diagram."""
+    model_config = ConfigDict(from_attributes=True)
+
+    stat_type: str
+    predicted_p: float
+    actual_hit_rate: float
+    n: int
+
+
+class PropBacktestRollingRow(BaseModel):
+    """Rolling 30-day hit rate data point per stat type."""
+    model_config = ConfigDict(from_attributes=True)
+
+    date: str
+    stat_type: str
+    hit_rate: float
+
+
+class PropBacktestResponse(BaseModel):
+    """Response for GET /props/backtest — 2023+ prop model backtest analysis."""
+    model_config = ConfigDict(from_attributes=True)
+
+    status: str
+    date_from: str
+    total_tracked: int
+    by_stat_type: List[PropBacktestStatRow]
+    calibration_bins: List[PropBacktestCalibrationBin]
+    rolling_hit_rate: List[PropBacktestRollingRow]
+
+
 # ---------------------------------------------------------------------------
 # Odds schemas
 # ---------------------------------------------------------------------------

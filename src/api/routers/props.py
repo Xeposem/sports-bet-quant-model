@@ -35,6 +35,10 @@ from src.api.schemas import (
     PropLineListRow,
     PropLinesListResponse,
     PropScanResponse,
+    PropBacktestResponse,
+    PropBacktestStatRow,
+    PropBacktestCalibrationBin,
+    PropBacktestRollingRow,
 )
 from src.props.base import p_over
 
@@ -42,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/props", tags=["props"])
 
-_VALID_STAT_TYPES = {"aces", "games_won", "double_faults"}
+_VALID_STAT_TYPES = {"aces", "games_won", "double_faults", "breaks_of_serve", "sets_won", "first_set_winner"}
 _VALID_DIRECTIONS = {"over", "under"}
 
 
@@ -77,7 +81,10 @@ async def get_props_accuracy(request: Request) -> PropAccuracyResponse:
                 return {
                     "status": "ok",
                     "overall_hit_rate": None,
-                    "hit_rate_by_stat": {"aces": None, "games_won": None, "double_faults": None},
+                    "hit_rate_by_stat": {
+                        "aces": None, "games_won": None, "double_faults": None,
+                        "breaks_of_serve": None, "sets_won": None, "first_set_winner": None,
+                    },
                     "total_tracked": 0,
                     "rolling_30d": [],
                     "calibration_bins": [],
@@ -85,7 +92,10 @@ async def get_props_accuracy(request: Request) -> PropAccuracyResponse:
 
             # Compute hits
             hits_total = 0
-            hits_by_stat = {"aces": [0, 0], "games_won": [0, 0], "double_faults": [0, 0]}
+            hits_by_stat = {
+                "aces": [0, 0], "games_won": [0, 0], "double_faults": [0, 0],
+                "breaks_of_serve": [0, 0], "sets_won": [0, 0], "first_set_winner": [0, 0],
+            }
             predicted_ps = []  # (predicted_p, did_hit, date) for rolling/calibration
 
             for r in resolved:
@@ -155,6 +165,140 @@ async def get_props_accuracy(request: Request) -> PropAccuracyResponse:
     loop = asyncio.get_event_loop()
     data = await loop.run_in_executor(None, _sync_compute)
     return PropAccuracyResponse(**data)
+
+
+# ---------------------------------------------------------------------------
+# GET /props/backtest  — 2023+ prop model backtest analysis (read-only)
+# Must be registered BEFORE GET "" to avoid path param conflict
+# ---------------------------------------------------------------------------
+
+@router.get("/backtest", response_model=PropBacktestResponse)
+async def get_props_backtest(request: Request) -> PropBacktestResponse:
+    """Return prop backtest results: hit rate and calibration for 2023+ data."""
+    db_path: str = request.app.state.db_path
+
+    def _sync_compute() -> dict:
+        from src.db.connection import get_connection
+        import json as _json
+        from collections import defaultdict
+
+        conn = get_connection(db_path)
+        try:
+            # Read-only: all resolved predictions from 2023+ (D-02)
+            # Different from /accuracy: no prop_lines JOIN needed.
+            # Uses ALL prop_predictions with actual_value, not just those with entered lines.
+            rows = conn.execute("""
+                SELECT p.stat_type, p.actual_value, p.mu, p.pmf_json, p.match_date
+                FROM prop_predictions p
+                WHERE p.actual_value IS NOT NULL
+                  AND p.match_date >= '2023-01-01'
+                ORDER BY p.match_date
+            """).fetchall()
+
+            if not rows:
+                return {
+                    "status": "ok",
+                    "date_from": "2023-01-01",
+                    "total_tracked": 0,
+                    "by_stat_type": [],
+                    "calibration_bins": [],
+                    "rolling_hit_rate": [],
+                }
+
+            # For backtest: "over mu" direction -- did actual exceed predicted mean?
+            stat_hits = defaultdict(lambda: {"hits": 0, "n": 0, "p_sum": 0.0})
+            cal_bins = defaultdict(lambda: defaultdict(lambda: [0, 0]))  # stat -> bucket -> [hits, n]
+            daily = defaultdict(lambda: defaultdict(lambda: [0, 0]))  # date -> stat -> [hits, n]
+
+            for r in rows:
+                pmf = _json.loads(r["pmf_json"])
+                mu = r["mu"]
+                actual = r["actual_value"]
+                st = r["stat_type"]
+
+                # For binary (first_set_winner): actual is 0 or 1, mu is P(win)
+                # For count: actual is integer, mu is expected count
+                if st == "first_set_winner":
+                    p_hit_val = mu  # P(win first set)
+                    did_hit = 1 if actual == 1 else 0
+                else:
+                    p_hit_val = p_over(pmf, mu)  # P(actual > mu)
+                    did_hit = 1 if actual > mu else 0
+
+                stat_hits[st]["hits"] += did_hit
+                stat_hits[st]["n"] += 1
+                stat_hits[st]["p_sum"] += p_hit_val
+
+                bucket = min(int(p_hit_val * 10), 9)
+                cal_bins[st][bucket][0] += did_hit
+                cal_bins[st][bucket][1] += 1
+
+                daily[r["match_date"]][st][0] += did_hit
+                daily[r["match_date"]][st][1] += 1
+
+            # Build by_stat_type
+            by_stat = []
+            for st, data in stat_hits.items():
+                n = data["n"]
+                hr = data["hits"] / n if n > 0 else 0.0
+                avg_p = data["p_sum"] / n if n > 0 else 0.0
+                # Calibration score = mean absolute deviation of bin actual_hr - bin predicted_p
+                bins_for_stat = cal_bins[st]
+                if bins_for_stat:
+                    deviations = []
+                    for b, (h, cnt) in bins_for_stat.items():
+                        bin_predicted = (b + 0.5) / 10
+                        bin_actual = h / cnt if cnt > 0 else 0
+                        deviations.append(abs(bin_actual - bin_predicted))
+                    cal_score = sum(deviations) / len(deviations)
+                else:
+                    cal_score = 0.0
+                by_stat.append({
+                    "stat_type": st, "hit_rate": round(hr, 4),
+                    "n": n, "avg_p_hit": round(avg_p, 4),
+                    "calibration_score": round(cal_score, 4),
+                })
+
+            # Build calibration_bins
+            cal_result = []
+            for st, buckets in cal_bins.items():
+                for b, (h, cnt) in sorted(buckets.items()):
+                    cal_result.append({
+                        "stat_type": st,
+                        "predicted_p": round((b + 0.5) / 10, 2),
+                        "actual_hit_rate": round(h / cnt, 4) if cnt > 0 else 0.0,
+                        "n": cnt,
+                    })
+
+            # Build rolling_hit_rate (30-day rolling window per stat)
+            dates_sorted = sorted(daily.keys())
+            all_stats = list(stat_hits.keys())
+            rolling_result = []
+            for stat in all_stats:
+                for i, d in enumerate(dates_sorted):
+                    window_start = max(0, i - 29)
+                    window_hits = sum(daily[dd].get(stat, [0, 0])[0] for dd in dates_sorted[window_start:i + 1])
+                    window_total = sum(daily[dd].get(stat, [0, 0])[1] for dd in dates_sorted[window_start:i + 1])
+                    if window_total > 0:
+                        rolling_result.append({
+                            "date": d, "stat_type": stat,
+                            "hit_rate": round(window_hits / window_total, 4),
+                        })
+
+            return {
+                "status": "ok",
+                "date_from": "2023-01-01",
+                "total_tracked": len(rows),
+                "by_stat_type": by_stat,
+                "calibration_bins": cal_result,
+                "rolling_hit_rate": rolling_result,
+            }
+        finally:
+            conn.close()
+
+    loop = asyncio.get_event_loop()
+    data = await loop.run_in_executor(None, _sync_compute)
+    return PropBacktestResponse(**data)
 
 
 # ---------------------------------------------------------------------------
