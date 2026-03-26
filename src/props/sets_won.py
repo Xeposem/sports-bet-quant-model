@@ -49,7 +49,6 @@ def _build_training_df(conn) -> pd.DataFrame:
             m.match_num,
             m.tour,
             m.score,
-            COALESCE(mf_w.best_of, m.best_of, 3)   AS best_of,
             mf_w.surface                             AS surface,
             mf_w.tourney_level                       AS tourney_level,
             -- Winner features
@@ -98,7 +97,6 @@ def _build_training_df(conn) -> pd.DataFrame:
             score_val = row["score"]
             surface = row["surface"]
             tourney_level = row["tourney_level"]
-            best_of = row["best_of"] or 3
             w_avg_ace_rate = row["w_avg_ace_rate"]
             l_avg_ace_rate = row["l_avg_ace_rate"]
             w_opp_rtn_pct = row["w_opp_rtn_pct"]
@@ -111,6 +109,9 @@ def _build_training_df(conn) -> pd.DataFrame:
             continue
 
         winner_sets, loser_sets = parsed
+        # Derive best_of from total sets played: 2 sets means best_of=3; 3+ means best_of=5
+        total_sets = winner_sets + loser_sets
+        best_of = 5 if total_sets >= 4 else 3
 
         w_opp_rtn = w_opp_rtn_pct if w_opp_rtn_pct is not None else 0.35
         l_opp_rtn = l_opp_rtn_pct if l_opp_rtn_pct is not None else 0.35
@@ -122,7 +123,7 @@ def _build_training_df(conn) -> pd.DataFrame:
             "opp_rtn_pct": w_opp_rtn,
             "surface": surface,
             "tourney_level": tourney_level,
-            "best_of": int(best_of),
+            "best_of": best_of,
         })
         # Loser row
         records.append({
@@ -131,7 +132,7 @@ def _build_training_df(conn) -> pd.DataFrame:
             "opp_rtn_pct": l_opp_rtn,
             "surface": surface,
             "tourney_level": tourney_level,
-            "best_of": int(best_of),
+            "best_of": best_of,
         })
 
     if not records:

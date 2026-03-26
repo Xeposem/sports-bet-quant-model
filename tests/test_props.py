@@ -693,3 +693,255 @@ async def test_accuracy_empty_ok(async_client):
     assert data["status"] == "ok"
     assert data["total_tracked"] == 0
     assert data["overall_hit_rate"] is None
+
+
+# ---------------------------------------------------------------------------
+# Phase 15, Plan 02: New stat type parser tests
+# ---------------------------------------------------------------------------
+
+from src.props.score_parser import parse_sets, parse_first_set_winner
+
+
+def test_parse_sets():
+    """parse_sets extracts (winner_sets, loser_sets) from score strings."""
+    assert parse_sets("6-3 7-5") == (2, 0)
+    assert parse_sets("7-6(5) 3-6 6-4") == (2, 1)
+    assert parse_sets("6-3 6-4 6-2") == (3, 0)
+    assert parse_sets("RET") is None
+    assert parse_sets("") is None
+    assert parse_sets(None) is None
+    assert parse_sets("W/O") is None
+
+
+def test_parse_first_set_winner():
+    """parse_first_set_winner identifies who won the first set."""
+    # Match winner also won first set
+    assert parse_first_set_winner("6-3 7-5") == 1
+    # Match loser won first set (match went 3 sets)
+    assert parse_first_set_winner("3-6 7-5 6-3") == 0
+    # Tiebreak first set won by match winner
+    assert parse_first_set_winner("7-6(5) 6-3") == 1
+    # Invalid / retirement
+    assert parse_first_set_winner("RET") is None
+    assert parse_first_set_winner("") is None
+    assert parse_first_set_winner(None) is None
+
+
+# ---------------------------------------------------------------------------
+# Phase 15, Plan 02: PROP_REGISTRY 6-type test
+# ---------------------------------------------------------------------------
+
+
+def test_prop_registry_has_6_types():
+    """PROP_REGISTRY contains exactly 6 stat type entries."""
+    from src.props import PROP_REGISTRY
+    assert len(PROP_REGISTRY) == 6
+    expected_keys = {"aces", "double_faults", "games_won", "breaks_of_serve", "sets_won", "first_set_winner"}
+    assert set(PROP_REGISTRY.keys()) == expected_keys
+    for key in expected_keys:
+        entry = PROP_REGISTRY[key]
+        assert callable(entry["train"]), f"train for {key} not callable"
+        assert callable(entry["predict"]), f"predict for {key} not callable"
+
+
+# ---------------------------------------------------------------------------
+# Phase 15, Plan 02: New model train/predict tests
+# ---------------------------------------------------------------------------
+
+
+def _make_test_db_with_bos_data(n_matches: int = 25):
+    """
+    Create in-memory DB with bp_faced/bp_saved data for breaks_of_serve training.
+    Extends _make_test_db_with_data with bp columns.
+    """
+    import random
+    conn = _make_test_db_with_data(n_matches)
+    random.seed(99)
+
+    # Update match_stats to add bp_faced/bp_saved columns
+    rows = conn.execute("SELECT tourney_id, match_num, tour, player_role FROM match_stats").fetchall()
+    for row in rows:
+        bp_faced = random.randint(2, 8)
+        bp_saved = random.randint(0, bp_faced)
+        conn.execute(
+            "UPDATE match_stats SET bp_faced=?, bp_saved=? WHERE tourney_id=? AND match_num=? AND tour=? AND player_role=?",
+            (bp_faced, bp_saved, row["tourney_id"], row["match_num"], row["tour"], row["player_role"]),
+        )
+    conn.commit()
+    return conn
+
+
+def test_breaks_of_serve_train_predict():
+    """breaks_of_serve train() and predict() work end-to-end."""
+    import src.props.breaks_of_serve as bos_mod
+    conn = _make_test_db_with_bos_data(25)
+    trained = bos_mod.train(conn)
+    assert "model" in trained
+    assert "family" in trained
+    assert "alpha" in trained
+    assert "aic" in trained
+
+    feature_row = {
+        "avg_df_rate": 0.05,
+        "opp_rtn_pct": 0.40,
+        "surface": "Clay",
+        "tourney_level": "G",
+    }
+    result = bos_mod.predict(trained, feature_row)
+    assert "pmf" in result
+    assert "mu" in result
+    assert isinstance(result["pmf"], list)
+    assert result["mu"] > 0
+    assert abs(sum(result["pmf"]) - 1.0) < 0.01
+
+
+def test_sets_won_train_predict():
+    """sets_won train() and predict() work end-to-end with max_k=6."""
+    import src.props.sets_won as sw_mod
+    conn = _make_test_db_with_data(25)
+    trained = sw_mod.train(conn)
+    assert "model" in trained
+    assert "family" in trained
+
+    feature_row = {
+        "avg_ace_rate": 0.08,
+        "opp_rtn_pct": 0.35,
+        "surface": "Hard",
+        "tourney_level": "A",
+        "best_of": 3,
+    }
+    result = sw_mod.predict(trained, feature_row)
+    assert "pmf" in result
+    assert "mu" in result
+    # max_k=6 means pmf has 7 entries (0..6)
+    assert len(result["pmf"]) <= 7
+    assert result["mu"] > 0
+    assert abs(sum(result["pmf"]) - 1.0) < 0.01
+
+
+def test_first_set_winner_train_predict():
+    """first_set_winner train() and predict() work end-to-end."""
+    import src.props.first_set_winner as fsw_mod
+    conn = _make_test_db_with_data(25)
+    trained = fsw_mod.train(conn)
+    assert "model" in trained
+    assert trained["family"] == "logistic"
+
+    feature_row = {
+        "avg_ace_rate": 0.10,
+        "opp_rtn_pct": 0.35,
+        "surface": "Grass",
+        "tourney_level": "G",
+    }
+    result = fsw_mod.predict(trained, feature_row)
+    assert "pmf" in result
+    assert "mu" in result
+    # Must be exactly 2-element PMF
+    assert len(result["pmf"]) == 2
+    # Probabilities must sum to 1
+    assert abs(sum(result["pmf"]) - 1.0) < 1e-9
+    # mu must be between 0 and 1
+    assert 0.0 <= result["mu"] <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# Phase 15, Plan 02: Resolver tests for new stat types
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_props_breaks_of_serve():
+    """resolve_props resolves breaks_of_serve: bp_faced=5, bp_saved=3 -> actual_value=2."""
+    from src.props.resolver import resolve_props
+
+    conn = _make_resolver_db()
+
+    # Insert match with winner_id=1001
+    conn.execute("""
+        INSERT INTO matches (tourney_id, match_num, tour, winner_id, loser_id, score, tourney_date, match_type)
+        VALUES ('T010', 1, 'ATP', 1001, 1002, '6-3 7-5', '2024-05-01', 'completed')
+    """)
+    # Insert match_stats with bp data
+    conn.execute("""
+        INSERT INTO match_stats (tourney_id, match_num, tour, player_role, ace, df, svpt, bp_faced, bp_saved)
+        VALUES ('T010', 1, 'ATP', 'winner', 5, 2, 60, 5, 3)
+    """)
+    # Insert unresolved prop prediction for breaks_of_serve
+    conn.execute("""
+        INSERT INTO prop_predictions
+        (tour, player_id, player_name, stat_type, match_date, mu, pmf_json, model_version, predicted_at)
+        VALUES ('ATP', 1001, 'Roger Federer', 'breaks_of_serve', '2024-05-01', 2.0, '[0.1, 0.3, 0.3, 0.2, 0.1]', 'poisson_v1', '2024-05-01T00:00:00')
+    """)
+    conn.commit()
+
+    result = resolve_props(conn)
+    assert result["resolved"] >= 1
+
+    row = conn.execute(
+        "SELECT actual_value FROM prop_predictions WHERE player_id=1001 AND stat_type='breaks_of_serve'"
+    ).fetchone()
+    assert row["actual_value"] == 2  # bp_faced(5) - bp_saved(3) = 2
+
+
+def test_resolve_props_sets_won():
+    """resolve_props resolves sets_won for winner (2) and loser (0) from '6-3 7-5'."""
+    from src.props.resolver import resolve_props
+
+    conn = _make_resolver_db()
+
+    conn.execute("""
+        INSERT INTO matches (tourney_id, match_num, tour, winner_id, loser_id, score, tourney_date, match_type)
+        VALUES ('T011', 1, 'ATP', 1001, 1002, '6-3 7-5', '2024-06-01', 'completed')
+    """)
+    # Winner prediction
+    conn.execute("""
+        INSERT INTO prop_predictions
+        (tour, player_id, player_name, stat_type, match_date, mu, pmf_json, model_version, predicted_at)
+        VALUES ('ATP', 1001, 'Roger Federer', 'sets_won', '2024-06-01', 1.8, '[0.05, 0.1, 0.6, 0.15, 0.05, 0.04, 0.01]', 'poisson_v1', '2024-06-01T00:00:00')
+    """)
+    # Loser prediction
+    conn.execute("""
+        INSERT INTO prop_predictions
+        (tour, player_id, player_name, stat_type, match_date, mu, pmf_json, model_version, predicted_at)
+        VALUES ('ATP', 1002, 'Rafael Nadal', 'sets_won', '2024-06-01', 0.5, '[0.6, 0.3, 0.05, 0.03, 0.01, 0.01]', 'poisson_v1', '2024-06-01T00:00:00')
+    """)
+    conn.commit()
+
+    result = resolve_props(conn)
+    assert result["resolved"] == 2
+
+    winner_row = conn.execute(
+        "SELECT actual_value FROM prop_predictions WHERE player_id=1001 AND stat_type='sets_won'"
+    ).fetchone()
+    loser_row = conn.execute(
+        "SELECT actual_value FROM prop_predictions WHERE player_id=1002 AND stat_type='sets_won'"
+    ).fetchone()
+    assert winner_row["actual_value"] == 2  # match winner won 2 sets
+    assert loser_row["actual_value"] == 0   # loser won 0 sets in a 2-0 scoreline
+
+
+def test_resolve_props_first_set_winner():
+    """resolve_props resolves first_set_winner: match winner (1001) won first set -> 1."""
+    from src.props.resolver import resolve_props
+
+    conn = _make_resolver_db()
+
+    # Score "6-3 7-5": match winner (1001) won both sets including first set
+    conn.execute("""
+        INSERT INTO matches (tourney_id, match_num, tour, winner_id, loser_id, score, tourney_date, match_type)
+        VALUES ('T012', 1, 'ATP', 1001, 1002, '6-3 7-5', '2024-07-01', 'completed')
+    """)
+    # Winner prediction
+    conn.execute("""
+        INSERT INTO prop_predictions
+        (tour, player_id, player_name, stat_type, match_date, mu, pmf_json, model_version, predicted_at)
+        VALUES ('ATP', 1001, 'Roger Federer', 'first_set_winner', '2024-07-01', 0.65, '[0.35, 0.65]', 'logistic_v1', '2024-07-01T00:00:00')
+    """)
+    conn.commit()
+
+    result = resolve_props(conn)
+    assert result["resolved"] >= 1
+
+    row = conn.execute(
+        "SELECT actual_value FROM prop_predictions WHERE player_id=1001 AND stat_type='first_set_winner'"
+    ).fetchone()
+    assert row["actual_value"] == 1  # match winner won first set
