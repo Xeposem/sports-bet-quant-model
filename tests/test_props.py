@@ -196,6 +196,9 @@ def _make_test_db_with_data(n_matches: int = 25):
             days_since_last INTEGER, sets_last_7_days INTEGER,
             tourney_level TEXT, surface TEXT,
             sentiment_score REAL,
+            pinnacle_prob_winner REAL,
+            pinnacle_prob_loser REAL,
+            has_no_pinnacle INTEGER,
             PRIMARY KEY (tourney_id, match_num, tour, player_role)
         );
 
@@ -225,6 +228,16 @@ def _make_test_db_with_data(n_matches: int = 25):
             actual_value INTEGER,
             resolved_at TEXT,
             UNIQUE (tour, player_id, stat_type, match_date)
+        );
+
+        CREATE TABLE IF NOT EXISTS court_speed_index (
+            tourney_id   TEXT NOT NULL,
+            tour         TEXT NOT NULL DEFAULT 'ATP',
+            surface      TEXT,
+            csi_value    REAL NOT NULL,
+            n_matches    INTEGER NOT NULL,
+            computed_at  TEXT NOT NULL,
+            PRIMARY KEY (tourney_id, tour)
         );
     """)
 
