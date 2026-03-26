@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-stopped_at: Completed 15-03-PLAN.md
-last_updated: "2026-03-26T05:51:10.524Z"
+status: Phase complete — ready for verification
+stopped_at: "Checkpoint 15-04 Task 3: human-verify PropAnalysisTab"
+last_updated: "2026-03-26T05:55:48.260Z"
 progress:
   total_phases: 15
-  completed_phases: 14
+  completed_phases: 15
   total_plans: 48
-  completed_plans: 47
+  completed_plans: 48
 ---
 
 # Project State
@@ -94,6 +94,7 @@ Plan: 4 of 4
 | Phase 15-explore-prop-markets-negbin-models-may-have-more-edge-on-aces-and-games-than-the-moneyline-model P01 | 6 | 2 tasks | 5 files |
 | Phase 15-explore-prop-markets-negbin-models-may-have-more-edge-on-aces-and-games-than-the-moneyline-model P02 | 35 | 2 tasks | 7 files |
 | Phase 15 P03 | 15 | 2 tasks | 3 files |
+| Phase 15-explore-prop-markets P04 | 2 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -220,6 +221,7 @@ Recent decisions affecting current work:
 - [Phase 15]: first_set_winner uses LogisticRegression (sklearn) returning 2-element PMF -- binary outcome, not count distribution
 - [Phase 15]: Backtest endpoint uses actual > mu as 'hit' definition: measures model calibration independently of entered bookmaker lines
 - [Phase 15]: first_set_winner special-cased in backtest: mu is P(win) directly, so p_hit_val = mu instead of calling p_over
+- [Phase 15]: StatType named alias added to types.ts; PropAnalysisTab shows all 6 stat types with per-stat filtering for calibration and rolling charts
 
 ### Roadmap Evolution
 
@@ -243,6 +245,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-26T05:51:10.517Z
-Stopped at: Completed 15-03-PLAN.md
+Last session: 2026-03-26T05:55:48.253Z
+Stopped at: Checkpoint 15-04 Task 3: human-verify PropAnalysisTab
 Resume file: None
