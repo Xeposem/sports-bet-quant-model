@@ -1009,3 +1009,122 @@ def test_resolve_props_first_set_winner():
         "SELECT actual_value FROM prop_predictions WHERE player_id=1001 AND stat_type='first_set_winner'"
     ).fetchone()
     assert row["actual_value"] == 1  # match winner won first set
+
+
+# ---------------------------------------------------------------------------
+# Phase 15, Plan 03: GET /props/backtest endpoint tests
+# ---------------------------------------------------------------------------
+
+
+def _seed_backtest_props_in_db(db_path: str):
+    """Seed resolved prop_predictions (no prop_lines join needed) for backtest tests."""
+    import sqlite3 as _sqlite3
+    import json as _json
+    from src.props.base import compute_pmf
+
+    conn = _sqlite3.connect(db_path)
+    conn.row_factory = _sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = OFF")
+
+    conn.execute(
+        "INSERT OR IGNORE INTO players (player_id, tour, first_name, last_name) VALUES (3001, 'ATP', 'Back', 'Test')"
+    )
+    conn.execute(
+        "INSERT OR IGNORE INTO players (player_id, tour, first_name, last_name) VALUES (3002, 'ATP', 'Back', 'Test2')"
+    )
+
+    pmf_aces = compute_pmf(6.0, "poisson")
+    pmf_games = compute_pmf(12.0, "poisson")
+
+    # Insert 3 resolved aces predictions (2023+) and 3 games_won predictions (2023+)
+    aces_data = [
+        (3001, "aces", "2023-03-01", 6.0, 8),   # actual > mu -> hit
+        (3001, "aces", "2023-06-15", 6.0, 5),   # actual <= mu -> miss
+        (3001, "aces", "2023-09-10", 6.0, 7),   # actual > mu -> hit
+    ]
+    games_data = [
+        (3002, "games_won", "2023-04-01", 12.0, 14),  # hit
+        (3002, "games_won", "2023-07-20", 12.0, 10),  # miss
+        (3002, "games_won", "2023-10-05", 12.0, 13),  # hit
+    ]
+
+    for player_id, stat_type, match_date, mu, actual_value in aces_data:
+        pmf_json = _json.dumps(pmf_aces)
+        conn.execute("""
+            INSERT OR IGNORE INTO prop_predictions
+            (tour, player_id, player_name, stat_type, match_date, mu, pmf_json,
+             model_version, predicted_at, actual_value, resolved_at)
+            VALUES ('ATP', ?, 'Test Player', ?, ?, ?, ?, 'aces_v1',
+                    '2023-01-01T00:00:00', ?, '2023-01-02T00:00:00')
+        """, (player_id, stat_type, match_date, mu, pmf_json, actual_value))
+
+    for player_id, stat_type, match_date, mu, actual_value in games_data:
+        pmf_json = _json.dumps(pmf_games)
+        conn.execute("""
+            INSERT OR IGNORE INTO prop_predictions
+            (tour, player_id, player_name, stat_type, match_date, mu, pmf_json,
+             model_version, predicted_at, actual_value, resolved_at)
+            VALUES ('ATP', ?, 'Test Player2', ?, ?, ?, ?, 'games_won_v1',
+                    '2023-01-01T00:00:00', ?, '2023-01-02T00:00:00')
+        """, (player_id, stat_type, match_date, mu, pmf_json, actual_value))
+
+    conn.commit()
+    conn.close()
+
+
+async def test_get_props_backtest(async_client):
+    """GET /props/backtest returns valid structure with 2023+ resolved predictions."""
+    app = async_client._transport.app
+    db_path = app.state.db_path
+
+    _seed_backtest_props_in_db(db_path)
+
+    response = await async_client.get("/api/v1/props/backtest")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["status"] == "ok"
+    assert data["date_from"] == "2023-01-01"
+    assert data["total_tracked"] >= 6
+
+    # by_stat_type must be a list with required fields
+    assert isinstance(data["by_stat_type"], list)
+    assert len(data["by_stat_type"]) >= 2
+    for row in data["by_stat_type"]:
+        assert "stat_type" in row
+        assert "hit_rate" in row
+        assert "n" in row
+        assert "avg_p_hit" in row
+        assert "calibration_score" in row
+        assert 0.0 <= row["hit_rate"] <= 1.0
+        assert row["n"] > 0
+
+    # calibration_bins must be a list with required fields
+    assert isinstance(data["calibration_bins"], list)
+    for bin_row in data["calibration_bins"]:
+        assert "stat_type" in bin_row
+        assert "predicted_p" in bin_row
+        assert "actual_hit_rate" in bin_row
+        assert "n" in bin_row
+
+    # rolling_hit_rate list
+    assert isinstance(data["rolling_hit_rate"], list)
+
+
+async def test_get_props_backtest_empty(async_client):
+    """GET /props/backtest returns ok with empty lists when no resolved predictions exist."""
+    response = await async_client.get("/api/v1/props/backtest")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["total_tracked"] == 0
+    assert data["by_stat_type"] == []
+    assert data["calibration_bins"] == []
+    assert data["rolling_hit_rate"] == []
+
+
+def test_valid_stat_types_expanded():
+    """_VALID_STAT_TYPES contains all 6 stat types."""
+    from src.api.routers.props import _VALID_STAT_TYPES
+    expected = {"aces", "games_won", "double_faults", "breaks_of_serve", "sets_won", "first_set_winner"}
+    assert expected == _VALID_STAT_TYPES, f"_VALID_STAT_TYPES mismatch: {_VALID_STAT_TYPES}"
