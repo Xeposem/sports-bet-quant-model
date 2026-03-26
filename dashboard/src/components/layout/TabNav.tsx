@@ -4,6 +4,7 @@ import { BacktestTab } from '@/tabs/BacktestTab';
 import { ModelsTab } from '@/tabs/ModelsTab';
 import { SignalsTab } from '@/tabs/SignalsTab';
 import { PropsTab } from '@/tabs/PropsTab';
+import { PropAnalysisTab } from '@/tabs/PropAnalysisTab';
 import { PaperTradingTab } from '@/tabs/PaperTradingTab';
 
 export function TabNav() {
@@ -42,6 +43,12 @@ export function TabNav() {
             Props
           </TabsTrigger>
           <TabsTrigger
+            value="prop-analysis"
+            className="h-11 rounded-none bg-transparent text-slate-500 data-[state=active]:text-slate-100 data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-green-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          >
+            Prop Analysis
+          </TabsTrigger>
+          <TabsTrigger
             value="paper-trading"
             className="h-11 rounded-none bg-transparent text-slate-500 data-[state=active]:text-slate-100 data-[state=active]:font-semibold data-[state=active]:border-b-2 data-[state=active]:border-green-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
           >
@@ -63,6 +70,9 @@ export function TabNav() {
       </TabsContent>
       <TabsContent value="props" className="mt-0">
         <PropsTab />
+      </TabsContent>
+      <TabsContent value="prop-analysis" className="mt-0">
+        <PropAnalysisTab />
       </TabsContent>
       <TabsContent value="paper-trading" className="mt-0">
         <PaperTradingTab />

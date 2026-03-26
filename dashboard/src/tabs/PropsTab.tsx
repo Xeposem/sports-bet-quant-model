@@ -18,9 +18,8 @@ import { CalibrationChart } from '../components/charts/CalibrationChart';
 import { PmfChart } from '../components/charts/PmfChart';
 import { useProps, useSubmitPropLine, usePropAccuracy, useScanPropScreenshot } from '../hooks/useProps';
 import { PropScanPreview } from '../components/shared/PropScanPreview';
-import type { PropPrediction, CalibrationBin, PropScanResponse } from '../api/types';
+import type { PropPrediction, CalibrationBin, PropScanResponse, StatType } from '../api/types';
 
-type StatType = 'aces' | 'games_won' | 'double_faults';
 type Direction = 'over' | 'under';
 
 function formatHitRate(value: number | null | undefined): string {
@@ -351,6 +350,9 @@ export function PropsTab() {
                     <SelectItem value="aces">Aces</SelectItem>
                     <SelectItem value="games_won">Games Won</SelectItem>
                     <SelectItem value="double_faults">Double Faults</SelectItem>
+                    <SelectItem value="breaks_of_serve">Breaks of Serve</SelectItem>
+                    <SelectItem value="sets_won">Sets Won</SelectItem>
+                    <SelectItem value="first_set_winner">First Set Winner</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -442,7 +444,16 @@ export function PropsTab() {
           )}
         </CardHeader>
         <CardContent>
-          {currentPrediction && currentPrediction.pmf && currentPrediction.pmf.length > 0 ? (
+          {currentPrediction && currentPrediction.stat_type === 'first_set_winner' ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <p className="text-slate-400 text-sm mb-2">Binary outcome — no PMF chart</p>
+              {currentPrediction.p_hit != null && (
+                <p className="text-2xl font-semibold text-green-400">
+                  P(Win 1st Set): {(currentPrediction.p_hit * 100).toFixed(1)}%
+                </p>
+              )}
+            </div>
+          ) : currentPrediction && currentPrediction.pmf && currentPrediction.pmf.length > 0 ? (
             <div style={{ height: 240 }}>
               <PmfChart
                 pmf={currentPrediction.pmf}
